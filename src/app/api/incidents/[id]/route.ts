@@ -5,7 +5,6 @@ import { eq, asc } from "drizzle-orm";
 import { notifyStatusChanged } from "@/lib/slack";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-export const runtime = "edge";
 
 function getD1(): D1Database | undefined {
   try {

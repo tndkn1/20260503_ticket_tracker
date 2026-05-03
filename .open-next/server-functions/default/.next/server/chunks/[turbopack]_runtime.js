@@ -602,6 +602,9 @@ async function externalImport(id) {
   case "next/dist/compiled/@vercel/og/index.node.js":
     raw = await import("next/dist/compiled/@vercel/og/index.edge.js");
     break;
+  case "better-sqlite3-90e2652d1716b047":
+    raw = await import("better-sqlite3");
+    break;
   default:
     raw = await import(id);
 };
@@ -911,10 +914,10 @@ module.exports = (sourcePath)=>({
   function requireChunk(chunkPath) {
     switch(chunkPath) {
       case "server/chunks/ssr/[root-of-the-server]__09z7o2x._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__09z7o2x._.js");
-      case "server/chunks/ssr/[root-of-the-server]__0gyqpyc._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0gyqpyc._.js");
       case "server/chunks/ssr/[root-of-the-server]__0hw~y-4._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0hw~y-4._.js");
-      case "server/chunks/ssr/[root-of-the-server]__0sizc8m._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0sizc8m._.js");
+      case "server/chunks/ssr/[root-of-the-server]__0saw7jj._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0saw7jj._.js");
       case "server/chunks/ssr/[root-of-the-server]__0tdodso._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0tdodso._.js");
+      case "server/chunks/ssr/[root-of-the-server]__13bjcxf._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__13bjcxf._.js");
       case "server/chunks/ssr/[turbopack]_runtime.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[turbopack]_runtime.js");
       case "server/chunks/ssr/_next-internal_server_app__not-found_page_actions_0eq97pa.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/_next-internal_server_app__not-found_page_actions_0eq97pa.js");
       case "server/chunks/ssr/node_modules_09w7yel._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/node_modules_09w7yel._.js");
@@ -925,15 +928,25 @@ module.exports = (sourcePath)=>({
       case "server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_0ghu-f7.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_0ghu-f7.js");
       case "server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_0cjv-23.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_0cjv-23.js");
       case "server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_0qp4u6g.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_0qp4u6g.js");
+      case "server/chunks/ssr/[root-of-the-server]__01cqrhy._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__01cqrhy._.js");
       case "server/chunks/ssr/[root-of-the-server]__089dc4i._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__089dc4i._.js");
-      case "server/chunks/ssr/[root-of-the-server]__0h4wzcb._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0h4wzcb._.js");
       case "server/chunks/ssr/_next-internal_server_app__global-error_page_actions_0k77kol.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/_next-internal_server_app__global-error_page_actions_0k77kol.js");
       case "server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_0lgvd_..js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_0lgvd_..js");
       case "server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_03-z2qq.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_03-z2qq.js");
-      case "server/chunks/[externals]_next_dist_0arv.vj._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[externals]_next_dist_0arv.vj._.js");
-      case "server/chunks/[root-of-the-server]__0teziyo._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__0teziyo._.js");
+      case "server/chunks/[root-of-the-server]__0j8-xkl._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__0j8-xkl._.js");
+      case "server/chunks/[root-of-the-server]__0lps350._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__0lps350._.js");
+      case "server/chunks/[root-of-the-server]__0ye94y4._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__0ye94y4._.js");
       case "server/chunks/[turbopack]_runtime.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[turbopack]_runtime.js");
+      case "server/chunks/_next-internal_server_app_api_incidents_[id]_route_actions_0fx~azk.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/_next-internal_server_app_api_incidents_[id]_route_actions_0fx~azk.js");
+      case "server/chunks/[root-of-the-server]__0cq292h._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__0cq292h._.js");
+      case "server/chunks/_next-internal_server_app_api_incidents_route_actions_0494-jg.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/_next-internal_server_app_api_incidents_route_actions_0494-jg.js");
+      case "server/chunks/[root-of-the-server]__01fm6kf._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__01fm6kf._.js");
+      case "server/chunks/_next-internal_server_app_api_sla-check_route_actions_0_gzudn.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/_next-internal_server_app_api_sla-check_route_actions_0_gzudn.js");
+      case "server/chunks/[root-of-the-server]__01pbofv._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[root-of-the-server]__01pbofv._.js");
+      case "server/chunks/_next-internal_server_app_api_stats_route_actions_0dv_g.a.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/_next-internal_server_app_api_stats_route_actions_0dv_g.a.js");
+      case "server/chunks/[externals]_next_dist_0arv.vj._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/[externals]_next_dist_0arv.vj._.js");
       case "server/chunks/_next-internal_server_app_favicon_ico_route_actions_095lj93.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/_next-internal_server_app_favicon_ico_route_actions_095lj93.js");
+      case "server/chunks/node_modules_next_dist_esm_build_templates_app-route_0m.429v.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/node_modules_next_dist_esm_build_templates_app-route_0m.429v.js");
       case "server/chunks/ssr/[root-of-the-server]__0hvtrl-._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/[root-of-the-server]__0hvtrl-._.js");
       case "server/chunks/ssr/_05yd_~s._.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/_05yd_~s._.js");
       case "server/chunks/ssr/_next-internal_server_app_incidents_[id]_page_actions_06lme3h.js": return require("/Users/tndk/20260503_ticket_tracker/.open-next/server-functions/default/.next/server/chunks/ssr/_next-internal_server_app_incidents_[id]_page_actions_06lme3h.js");

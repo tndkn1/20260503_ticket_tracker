@@ -1,10 +1,10 @@
 {
   "/_global-error/page": "app/_global-error/page.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/api/incidents/[id]/route": "app-edge-has-no-entrypoint",
-  "/api/incidents/route": "app-edge-has-no-entrypoint",
-  "/api/sla-check/route": "app-edge-has-no-entrypoint",
-  "/api/stats/route": "app-edge-has-no-entrypoint",
+  "/api/incidents/[id]/route": "app/api/incidents/[id]/route.js",
+  "/api/incidents/route": "app/api/incidents/route.js",
+  "/api/sla-check/route": "app/api/sla-check/route.js",
+  "/api/stats/route": "app/api/stats/route.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/incidents/[id]/page": "app/incidents/[id]/page.js",
   "/page": "app/page.js"

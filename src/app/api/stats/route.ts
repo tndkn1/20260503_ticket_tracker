@@ -3,7 +3,6 @@ import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-export const runtime = "edge";
 
 function getD1(): D1Database | undefined {
   try {

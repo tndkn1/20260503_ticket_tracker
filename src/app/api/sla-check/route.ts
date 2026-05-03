@@ -5,7 +5,6 @@ import { eq, not, inArray } from "drizzle-orm";
 import { notifySlaBreached } from "@/lib/slack";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-export const runtime = "edge";
 
 function getD1(): D1Database | undefined {
   try {
