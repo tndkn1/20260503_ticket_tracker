@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "npm run migrate && next dev",
     "build": "next build",
-    "build:cf": "next build && npx @opennextjs/cloudflare build",
+    "build:cf": "next build --webpack && npx @opennextjs/cloudflare build",
     "deploy": "npm run build:cf && npx wrangler deploy",
     "cf:preview": "npm run build:cf && npx wrangler dev",
     "start": "next start",

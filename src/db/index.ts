@@ -1,6 +1,5 @@
 import * as schema from "./schema";
 
-// Populated lazily for local SQLite connections
 let _localDb: ReturnType<typeof createLocalDb> | null = null;
 
 function createLocalDb() {
@@ -9,9 +8,7 @@ function createLocalDb() {
   const Database = require("better-sqlite3");
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { drizzle } = require("drizzle-orm/better-sqlite3");
-  const path = require("path") as typeof import("path");
-  const dbPath =
-    process.env.DB_PATH ?? path.join(process.cwd(), "data", "itsm.db");
+  const dbPath = process.env.DB_PATH ?? "data/itsm.db";
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
   return drizzle(sqlite, { schema }) as import("drizzle-orm/better-sqlite3").BetterSQLite3Database<typeof schema>;

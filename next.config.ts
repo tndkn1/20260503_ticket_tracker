@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Turbopack config (local dev) — no webpack needed here
+  turbopack: {},
   webpack(config, { nextRuntime }) {
     // Edge runtime (Cloudflare Workers) cannot use native Node.js modules.
     // Alias them to false so the bundler excludes them from edge builds.
