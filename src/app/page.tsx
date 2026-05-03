@@ -1,65 +1,189 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { StatCard } from "@/components/stat-card";
+import { IncidentTable } from "@/components/incidents/incident-table";
+import { CreateIncidentDialog } from "@/components/incidents/create-dialog";
+import { Plus, RefreshCw, AlertTriangle } from "lucide-react";
+import type { Incident } from "@/db/schema";
 
-export default function Home() {
+interface Stats {
+  total: number;
+  openCount: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  slaResponseBreached: number;
+  slaResolveBreached: number;
+  avgResolveMinutes: number | null;
+}
+
+function fmtMinutes(min: number | null) {
+  if (min === null) return "—";
+  if (min < 60) return `${min}分`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m > 0 ? `${h}時間${m}分` : `${h}時間`;
+}
+
+export default function HomePage() {
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [search, setSearch] = useState("");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterStatus !== "all") params.set("status", filterStatus);
+      if (filterPriority !== "all") params.set("priority", filterPriority);
+      if (search) params.set("q", search);
+
+      const [incRes, statsRes] = await Promise.all([
+        fetch(`/api/incidents?${params}`),
+        fetch("/api/stats"),
+      ]);
+      const [incData, statsData] = await Promise.all([
+        incRes.json(),
+        statsRes.json(),
+      ]);
+      setIncidents(incData);
+      setStats(statsData);
+      setNow(Date.now());
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStatus, filterPriority, search]);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <span className="font-semibold text-lg">ITSM Incident Tracker</span>
+          </div>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-1" />
+            インシデント起票
+          </Button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <StatCard title="総インシデント" value={stats.total} accent="blue" />
+            <StatCard title="未解決" value={stats.openCount} accent="orange" />
+            <StatCard
+              title="P1 Active"
+              value={stats.byPriority.p1 ?? 0}
+              accent={stats.byPriority.p1 > 0 ? "red" : "default"}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <StatCard
+              title="SLA応答違反"
+              value={stats.slaResponseBreached}
+              accent={stats.slaResponseBreached > 0 ? "red" : "green"}
+            />
+            <StatCard
+              title="SLA解決違反"
+              value={stats.slaResolveBreached}
+              accent={stats.slaResolveBreached > 0 ? "red" : "green"}
+            />
+            <StatCard
+              title="平均解決時間"
+              value={fmtMinutes(stats.avgResolveMinutes)}
+              accent="default"
+            />
+          </div>
+        )}
+
+        {stats && (
+          <div className="grid grid-cols-5 gap-2">
+            {(["new", "assigned", "in_progress", "resolved", "closed"] as const).map(
+              (s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilterStatus(filterStatus === s ? "all" : s)}
+                  className={`rounded-lg border px-3 py-2 text-center text-xs transition-colors ${
+                    filterStatus === s
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card hover:bg-muted"
+                  }`}
+                >
+                  <div className="font-bold text-lg tabular-nums">
+                    {stats.byStatus[s] ?? 0}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-wide opacity-70">
+                    {s.replace("_", " ")}
+                  </div>
+                </button>
+              )
+            )}
+          </div>
+        )}
+
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="タイトル・説明・報告者で検索..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-64"
+              />
+              <Select value={filterPriority} onValueChange={(v) => setFilterPriority(v ?? "all")}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="優先度" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべての優先度</SelectItem>
+                  <SelectItem value="p1">P1 Critical</SelectItem>
+                  <SelectItem value="p2">P2 High</SelectItem>
+                  <SelectItem value="p3">P3 Medium</SelectItem>
+                  <SelectItem value="p4">P4 Low</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={fetchData}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <IncidentTable incidents={incidents} now={now} />
+          </CardContent>
+        </Card>
       </main>
+
+      <CreateIncidentDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={fetchData}
+      />
     </div>
   );
 }
