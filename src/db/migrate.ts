@@ -50,6 +50,15 @@ function migrate() {
     INSERT OR IGNORE INTO sla_config VALUES ('p2', 60,  480);
     INSERT OR IGNORE INTO sla_config VALUES ('p3', 240, 1440);
     INSERT OR IGNORE INTO sla_config VALUES ('p4', 1440, 4320);
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
+    );
   `);
 
   console.log("Migration complete:", DB_PATH);

@@ -14,6 +14,7 @@ import { StatCard } from "@/components/stat-card";
 import { IncidentTable } from "@/components/incidents/incident-table";
 import { CreateIncidentDialog } from "@/components/incidents/create-dialog";
 import { Plus, RefreshCw, AlertTriangle } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
 import type { Incident } from "@/db/schema";
 
 interface Stats {
@@ -82,10 +83,13 @@ export default function HomePage() {
             <AlertTriangle className="w-5 h-5 text-orange-500" />
             <span className="font-semibold text-lg">ITSM Incident Tracker</span>
           </div>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-1" />
-            インシデント起票
-          </Button>
+          <div className="flex items-center gap-3">
+            <UserMenu />
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              インシデント起票
+            </Button>
+          </div>
         </div>
       </header>
 

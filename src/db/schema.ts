@@ -55,8 +55,20 @@ export const slaConfig = sqliteTable("sla_config", {
   resolveMinutes: integer("resolve_minutes").notNull(),
 });
 
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role", { enum: ["admin", "member"] }).notNull().default("member"),
+  createdAt: integer("created_at")
+    .notNull()
+    .default(sql`(unixepoch('now') * 1000)`),
+});
+
 export type Incident = typeof incidents.$inferSelect;
 export type NewIncident = typeof incidents.$inferInsert;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type NewAuditLogEntry = typeof auditLog.$inferInsert;
 export type SlaConfig = typeof slaConfig.$inferSelect;
+export type User = typeof users.$inferSelect;
