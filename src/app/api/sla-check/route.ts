@@ -1,20 +1,27 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
-import { eq, and, not, inArray } from "drizzle-orm";
+import { eq, not, inArray } from "drizzle-orm";
 import { notifySlaBreached } from "@/lib/slack";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-// Called by a cron / periodic ping to detect SLA breaches
+
+function getD1(): D1Database | undefined {
+  try {
+    return (getCloudflareContext() as any).env?.DB as D1Database | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function POST() {
-  const db = getDb();
+  const db = getDb(getD1());
   const now = Date.now();
 
   const active = await db
     .select()
     .from(incidents)
-    .where(
-      not(inArray(incidents.status, ["resolved", "closed"]))
-    );
+    .where(not(inArray(incidents.status, ["resolved", "closed"])));
 
   let responseBreached = 0;
   let resolveBreached = 0;

@@ -3,13 +3,23 @@ import { getDb } from "@/db";
 import { incidents, auditLog } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { notifyStatusChanged } from "@/lib/slack";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+
+function getD1(): D1Database | undefined {
+  try {
+    return (getCloudflareContext() as any).env?.DB as D1Database | undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const db = getDb();
+  const db = getDb(getD1());
   const [incident] = await db
     .select()
     .from(incidents)
@@ -33,7 +43,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const db = getDb();
+  const db = getDb(getD1());
   const body = await req.json();
   const { actor, comment, ...fields } = body;
 
@@ -52,17 +62,15 @@ export async function PATCH(
 
   const now = Date.now();
   const updates: Record<string, unknown> = { updatedAt: now };
-  const logEntries: Parameters<typeof db.insert>[0] extends typeof auditLog
-    ? never
-    : {
-        incidentId: string;
-        actor: string;
-        field: string;
-        oldValue: string | null;
-        newValue: string | null;
-        comment: string | null;
-        createdAt: number;
-      }[] = [];
+  const logEntries: {
+    incidentId: string;
+    actor: string;
+    field: string;
+    oldValue: string | null;
+    newValue: string | null;
+    comment: string | null;
+    createdAt: number;
+  }[] = [];
 
   const trackable = ["status", "priority", "assignee", "title", "description"];
 
@@ -85,7 +93,6 @@ export async function PATCH(
     }
   }
 
-  // SLA: mark respondedAt when first leaving 'new'
   if (
     fields.status &&
     fields.status !== "new" &&
@@ -98,7 +105,6 @@ export async function PATCH(
     }
   }
 
-  // SLA: mark resolvedAt
   if (
     fields.status &&
     (fields.status === "resolved" || fields.status === "closed") &&
@@ -118,7 +124,6 @@ export async function PATCH(
     await db.insert(auditLog).values(logEntries);
   }
 
-  // comment-only entry
   if (comment && logEntries.length === 0) {
     await db.insert(auditLog).values({
       incidentId: id,
