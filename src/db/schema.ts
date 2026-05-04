@@ -59,7 +59,8 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
+  githubId: text("github_id").unique(),
   role: text("role", { enum: ["admin", "member"] }).notNull().default("member"),
   createdAt: integer("created_at")
     .notNull()

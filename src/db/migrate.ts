@@ -55,11 +55,33 @@ function migrate() {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
+      password_hash TEXT,
+      github_id TEXT UNIQUE,
       role TEXT NOT NULL DEFAULT 'member',
       created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
     );
   `);
+
+  // Migration: make password_hash nullable and add github_id if not present
+  const cols = db.pragma("table_info(users)") as { name: string }[];
+  const hasGithubId = cols.some((c) => c.name === "github_id");
+  if (!hasGithubId) {
+    db.exec(`
+      CREATE TABLE users_new (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT,
+        github_id TEXT UNIQUE,
+        role TEXT NOT NULL DEFAULT 'member',
+        created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
+      );
+      INSERT INTO users_new (id, username, email, password_hash, role, created_at)
+        SELECT id, username, email, password_hash, role, created_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+    `);
+  }
 
   console.log("Migration complete:", DB_PATH);
   db.close();

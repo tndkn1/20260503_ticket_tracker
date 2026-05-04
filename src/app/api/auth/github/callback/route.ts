@@ -1,0 +1,134 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { signToken, sessionCookieOptions } from "@/lib/auth";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+function getD1(): D1Database | undefined {
+  try { return (getCloudflareContext() as any).env?.DB; } catch { return undefined; }
+}
+
+interface GitHubUser {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+}
+
+interface GitHubEmail {
+  email: string;
+  primary: boolean;
+  verified: boolean;
+}
+
+async function getGitHubUser(accessToken: string): Promise<GitHubUser> {
+  const res = await fetch("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/vnd.github+json" },
+  });
+  if (!res.ok) throw new Error("GitHub user API failed");
+  return res.json();
+}
+
+async function getGitHubPrimaryEmail(accessToken: string): Promise<string> {
+  const res = await fetch("https://api.github.com/user/emails", {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/vnd.github+json" },
+  });
+  if (!res.ok) throw new Error("GitHub email API failed");
+  const emails: GitHubEmail[] = await res.json();
+  const primary = emails.find((e) => e.primary && e.verified);
+  if (!primary) throw new Error("認証済みのメールアドレスが見つかりません");
+  return primary.email;
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl;
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+  const storedState = req.cookies.get("github_oauth_state")?.value;
+
+  // CSRF check
+  if (!state || !storedState || state !== storedState) {
+    return NextResponse.redirect(new URL("/login?error=invalid_state", req.url));
+  }
+
+  const colonIdx = state.indexOf(":");
+  const from = colonIdx !== -1 ? decodeURIComponent(state.slice(colonIdx + 1)) : "/";
+
+  if (!code) {
+    return NextResponse.redirect(new URL(`/login?error=no_code&from=${encodeURIComponent(from)}`, req.url));
+  }
+
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return NextResponse.redirect(new URL("/login?error=misconfigured", req.url));
+  }
+
+  try {
+    // Exchange code for access token
+    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
+    });
+    const tokenData: { access_token?: string; error?: string } = await tokenRes.json();
+    if (!tokenData.access_token) {
+      return NextResponse.redirect(new URL("/login?error=token_exchange", req.url));
+    }
+
+    const accessToken = tokenData.access_token;
+    const ghUser = await getGitHubUser(accessToken);
+    const email = ghUser.email ?? await getGitHubPrimaryEmail(accessToken);
+    const githubId = String(ghUser.id);
+    const username = ghUser.login;
+
+    const db = getDb(getD1());
+
+    // Find existing user by github_id or email
+    let [user] = await db.select().from(users).where(eq(users.githubId, githubId));
+    if (!user) {
+      [user] = await db.select().from(users).where(eq(users.email, email));
+    }
+
+    if (user) {
+      // Link github_id if not yet linked
+      if (!user.githubId) {
+        await db.update(users).set({ githubId }).where(eq(users.id, user.id));
+        user = { ...user, githubId };
+      }
+    } else {
+      // Create new user
+      const id = `USER-${Date.now()}`;
+      // Ensure username uniqueness by appending suffix if needed
+      let finalUsername = username;
+      const [existing] = await db.select().from(users).where(eq(users.username, username));
+      if (existing) finalUsername = `${username}-gh`;
+
+      await db.insert(users).values({
+        id,
+        username: finalUsername,
+        email,
+        passwordHash: null,
+        githubId,
+        role: "member",
+      });
+      [user] = await db.select().from(users).where(eq(users.id, id));
+    }
+
+    const token = await signToken({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role as "admin" | "member",
+    });
+
+    const res = NextResponse.redirect(new URL(from, req.url));
+    res.cookies.set(sessionCookieOptions(token));
+    res.cookies.delete("github_oauth_state");
+    return res;
+  } catch (err) {
+    console.error("GitHub OAuth error:", err);
+    return NextResponse.redirect(new URL("/login?error=oauth_failed", req.url));
+  }
+}

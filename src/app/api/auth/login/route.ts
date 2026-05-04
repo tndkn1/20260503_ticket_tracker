@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const db = getDb(getD1());
   const [user] = await db.select().from(users).where(eq(users.username, username));
 
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     return NextResponse.json({ error: "ユーザー名またはパスワードが正しくありません" }, { status: 401 });
   }
 
