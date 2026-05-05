@@ -3,10 +3,9 @@ import { verifyToken } from "@/lib/auth";
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/github"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths and static assets
   if (
     PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith("/_next") ||
@@ -24,7 +23,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Inject user info into request headers for server components / API routes
   const res = NextResponse.next();
   res.headers.set("x-user-id", session.userId);
   res.headers.set("x-username", session.username);
