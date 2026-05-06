@@ -14,7 +14,8 @@ if (!url) {
 
 const client = createClient({ url, authToken });
 
-await client.executeMultiple(`
+async function migrate() {
+  await client.executeMultiple(`
   CREATE TABLE IF NOT EXISTS incidents (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -65,6 +66,8 @@ await client.executeMultiple(`
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
   );
 `);
+  console.log("Turso migration complete:", url);
+  client.close();
+}
 
-console.log("Turso migration complete:", url);
-client.close();
+migrate().catch((err) => { console.error(err); process.exit(1); });
