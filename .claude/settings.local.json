@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m json.tool /Users/tndk/20260503_ticket_tracker/.next/server/middleware-manifest.json)",
+      "Bash(python3 -m json.tool)",
+      "Bash(NEXT_PRIVATE_STANDALONE=true npx next build --webpack)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('middleware keys:', list\\(d.get\\('middleware',{}\\).keys\\(\\)\\)\\); print\\('functions keys:', list\\(d.get\\('functions',{}\\).keys\\(\\)\\)\\)\")"
+    ]
+  }
+}
