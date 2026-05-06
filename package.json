@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "npm run migrate && next dev",
-    "build": "next build --webpack && npx @opennextjs/cloudflare build --skipNextBuild",
-    "build:next": "next build --webpack",
+    "build": "CLOUDFLARE_DEPLOY=true next build --webpack && npx @opennextjs/cloudflare build --skipNextBuild",
+    "build:vercel": "next build",
+    "build:next": "CLOUDFLARE_DEPLOY=true next build --webpack",
     "deploy": "npm run build && npx wrangler deploy",
     "cf:preview": "npm run build && npx wrangler dev",
     "start": "next start",
     "lint": "eslint",
     "migrate": "npx tsx src/db/migrate.ts",
+    "migrate:turso": "npx tsx src/db/migrate-turso.ts",
     "migrate:d1": "npx wrangler d1 execute itsm-db --file=./migrations/0001_init.sql && npx wrangler d1 execute itsm-db --file=./migrations/0002_add_users.sql",
     "migrate:d1:remote": "npx wrangler d1 execute itsm-db --file=./migrations/0002_add_users.sql --remote",
     "seed:user": "npx tsx src/db/seed-user.ts"

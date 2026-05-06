@@ -1,11 +1,12 @@
 import * as schema from "./schema";
 import { drizzle as drizzleD1 } from "drizzle-orm/d1";
+import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 
 let _localDb: ReturnType<typeof createLocalDb> | null = null;
+let _tursoDb: ReturnType<typeof drizzleLibsql<typeof schema>> | null = null;
 
 function createLocalDb() {
-  // These requires are excluded from edge builds via webpack alias in next.config.ts.
-  // On Cloudflare Workers this path is never reached because d1 is always provided.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Database = require("better-sqlite3");
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -16,12 +17,21 @@ function createLocalDb() {
   return drizzleSqlite(sqlite, { schema }) as import("drizzle-orm/better-sqlite3").BetterSQLite3Database<typeof schema>;
 }
 
+function createTursoDb() {
+  const client = createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+  return drizzleLibsql(client, { schema });
+}
+
 export function getDb(d1?: D1Database) {
-  if (d1) {
-    return drizzleD1(d1, { schema });
+  // Priority: D1 (Cloudflare Workers) > Turso (Vercel / TURSO_DATABASE_URL) > SQLite (local dev)
+  if (d1) return drizzleD1(d1, { schema });
+  if (process.env.TURSO_DATABASE_URL) {
+    if (!_tursoDb) _tursoDb = createTursoDb();
+    return _tursoDb;
   }
-  if (!_localDb) {
-    _localDb = createLocalDb();
-  }
+  if (!_localDb) _localDb = createLocalDb();
   return _localDb;
 }

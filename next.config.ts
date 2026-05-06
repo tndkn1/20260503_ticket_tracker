@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // standalone はOpenNextのcloudflareビルド時のみ必要。Vercelでは不要
+  output: process.env.CLOUDFLARE_DEPLOY === "true" ? "standalone" : undefined,
   // Turbopack config (local dev) — no webpack needed here
   turbopack: {},
   webpack(config, { nextRuntime }) {
