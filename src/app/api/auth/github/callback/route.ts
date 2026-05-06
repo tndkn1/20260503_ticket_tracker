@@ -4,6 +4,13 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { jwtVerify } from "jose";
+
+function getSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET env var is not set");
+  return new TextEncoder().encode(secret);
+}
 
 function getD1(): D1Database | undefined {
   try { return (getCloudflareContext() as any).env?.DB; } catch { return undefined; }
@@ -45,15 +52,18 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
-  const storedState = req.cookies.get("github_oauth_state")?.value;
 
-  // CSRF check
-  if (!state || !storedState || state !== storedState) {
+  // CSRF check: state は JWT 署名で検証する (Cookie 不要)
+  let from = "/";
+  if (!state) {
     return NextResponse.redirect(new URL("/login?error=invalid_state", req.url));
   }
-
-  const colonIdx = state.indexOf(":");
-  const from = colonIdx !== -1 ? decodeURIComponent(state.slice(colonIdx + 1)) : "/";
+  try {
+    const { payload } = await jwtVerify(state, getSecret());
+    from = (payload.from as string) ?? "/";
+  } catch {
+    return NextResponse.redirect(new URL("/login?error=invalid_state", req.url));
+  }
 
   if (!code) {
     return NextResponse.redirect(new URL(`/login?error=no_code&from=${encodeURIComponent(from)}`, req.url));
@@ -125,7 +135,6 @@ export async function GET(req: NextRequest) {
 
     const res = NextResponse.redirect(new URL(from, req.url));
     res.cookies.set(sessionCookieOptions(token));
-    res.cookies.delete("github_oauth_state");
     return res;
   } catch (err) {
     console.error("GitHub OAuth error:", err);

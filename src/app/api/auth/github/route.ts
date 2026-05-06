@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+import { SignJWT } from "jose";
+
+function getSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET env var is not set");
+  return new TextEncoder().encode(secret);
+}
 
 export async function GET(req: NextRequest) {
   const clientId = process.env.GITHUB_CLIENT_ID;
@@ -8,9 +14,13 @@ export async function GET(req: NextRequest) {
   }
 
   const from = req.nextUrl.searchParams.get("from") ?? "/";
-  const csrf = randomBytes(16).toString("hex");
-  // state = "<csrf>:<from>" — verified in callback to prevent CSRF
-  const state = `${csrf}:${encodeURIComponent(from)}`;
+
+  // State は JWT として署名する — Cookie 不要でどの環境でも動作する
+  const state = await new SignJWT({ from })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(getSecret());
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -18,15 +28,7 @@ export async function GET(req: NextRequest) {
     state,
   });
 
-  const res = NextResponse.redirect(
+  return NextResponse.redirect(
     `https://github.com/login/oauth/authorize?${params}`
   );
-  res.cookies.set("github_oauth_state", state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 300, // 5 minutes
-  });
-  return res;
 }
