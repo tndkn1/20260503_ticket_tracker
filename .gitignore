@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Cloudflare / OpenNext build output
 /.open-next/
+
+# Nested repo copy (git worktree artifact — not part of this project)
+/20260503_ticket_tracker/
