@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "npm run migrate && next dev",
-    "build": "next build --webpack && npx @opennextjs/cloudflare build",
+    "build": "next build --webpack && npx @opennextjs/cloudflare build --skipNextBuild",
     "build:next": "next build --webpack",
     "deploy": "npm run build && npx wrangler deploy",
-    "cf:preview": "npm run build:cf && npx wrangler dev",
+    "cf:preview": "npm run build && npx wrangler dev",
     "start": "next start",
     "lint": "eslint",
     "migrate": "npx tsx src/db/migrate.ts",

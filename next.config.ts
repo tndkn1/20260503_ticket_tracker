@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Turbopack config (local dev) — no webpack needed here
   turbopack: {},
   webpack(config, { nextRuntime }) {
