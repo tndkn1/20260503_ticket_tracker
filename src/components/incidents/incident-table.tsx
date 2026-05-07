@@ -40,6 +40,7 @@ export function IncidentTable({ incidents, now }: Props) {
           <TableHead className="w-32">優先度</TableHead>
           <TableHead className="w-32">ステータス</TableHead>
           <TableHead className="w-40">SLA (解決)</TableHead>
+          <TableHead className="w-28">起票者</TableHead>
           <TableHead className="w-32">担当者</TableHead>
           <TableHead className="w-36">起票日</TableHead>
         </TableRow>
@@ -65,6 +66,9 @@ export function IncidentTable({ incidents, now }: Props) {
             </TableCell>
             <TableCell>
               <SlaResolveBadge incident={inc} now={now} />
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {inc.reporter}
             </TableCell>
             <TableCell className="text-sm text-muted-foreground">
               {inc.assignee ?? "—"}
