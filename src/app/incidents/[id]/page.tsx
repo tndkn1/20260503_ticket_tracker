@@ -411,6 +411,15 @@ export default function IncidentDetailPage({
               </CardContent>
             </Card>
           )}
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.push("/")}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            トップページへ戻る
+          </Button>
         </div>
       </main>
     </div>
