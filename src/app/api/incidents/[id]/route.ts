@@ -3,23 +3,13 @@ import { getDb } from "@/db";
 import { incidents, auditLog } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { notifyStatusChanged } from "@/lib/slack";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-
-function getD1(): D1Database | undefined {
-  try {
-    return (getCloudflareContext() as any).env?.DB as D1Database | undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const db = getDb(getD1());
+  const db = getDb();
   const [incident] = await db
     .select()
     .from(incidents)
@@ -43,7 +33,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const db = getDb(getD1());
+  const db = getDb();
   const body = await req.json();
   const { actor, comment, ...fields } = body;
 

@@ -3,19 +3,9 @@ import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
 import { eq, not, inArray } from "drizzle-orm";
 import { notifySlaBreached } from "@/lib/slack";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-
-function getD1(): D1Database | undefined {
-  try {
-    return (getCloudflareContext() as any).env?.DB as D1Database | undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export async function POST() {
-  const db = getDb(getD1());
+  const db = getDb();
   const now = Date.now();
 
   const active = await db

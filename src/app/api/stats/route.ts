@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-
-function getD1(): D1Database | undefined {
-  try {
-    return (getCloudflareContext() as any).env?.DB as D1Database | undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export async function GET() {
-  const db = getDb(getD1());
+  const db = getDb();
   const all = await db.select().from(incidents);
 
   const total = all.length;
