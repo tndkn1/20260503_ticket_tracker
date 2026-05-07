@@ -50,8 +50,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const existing = await db.select().from(incidents);
   const now = Date.now();
-  const id = generateId();
+  const id = generateId(existing.length + 1);
   const { slaResponseDeadline, slaResolveDeadline } = computeSlaDeadlines(priority, now);
 
   const newIncident = {
