@@ -13,8 +13,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { SlaResolveBadge } from "@/components/sla-badge";
 import { shortId } from "@/lib/id";
 import type { Incident } from "@/db/schema";
-import { formatDistanceToNow } from "date-fns";
-import { ja } from "date-fns/locale";
+import { format } from "date-fns";
 
 interface Props {
   incidents: Incident[];
@@ -42,7 +41,7 @@ export function IncidentTable({ incidents, now }: Props) {
           <TableHead className="w-32">ステータス</TableHead>
           <TableHead className="w-40">SLA (解決)</TableHead>
           <TableHead className="w-32">担当者</TableHead>
-          <TableHead className="w-32">起票</TableHead>
+          <TableHead className="w-36">起票日</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -71,10 +70,7 @@ export function IncidentTable({ incidents, now }: Props) {
               {inc.assignee ?? "—"}
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(inc.createdAt), {
-                addSuffix: true,
-                locale: ja,
-              })}
+              {format(new Date(inc.createdAt), "yyyy/MM/dd HH:mm")}
             </TableCell>
           </TableRow>
         ))}
