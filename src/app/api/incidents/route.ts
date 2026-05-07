@@ -5,19 +5,9 @@ import { desc } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 import { computeSlaDeadlines } from "@/lib/sla";
 import { notifyIncidentCreated } from "@/lib/slack";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-
-function getD1(): D1Database | undefined {
-  try {
-    return (getCloudflareContext() as any).env?.DB as D1Database | undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export async function GET(req: NextRequest) {
-  const db = getDb(getD1());
+  const db = getDb();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
@@ -44,7 +34,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb(getD1());
+  const db = getDb();
   const reporter = req.headers.get("x-username");
   if (!reporter) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

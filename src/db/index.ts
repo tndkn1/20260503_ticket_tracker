@@ -1,5 +1,4 @@
 import * as schema from "./schema";
-import { drizzle as drizzleD1 } from "drizzle-orm/d1";
 import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
 
@@ -25,9 +24,8 @@ function createTursoDb() {
   return drizzleLibsql(client, { schema });
 }
 
-export function getDb(d1?: D1Database) {
-  // Priority: D1 (Cloudflare Workers) > Turso (Vercel / TURSO_DATABASE_URL) > SQLite (local dev)
-  if (d1) return drizzleD1(d1, { schema });
+export function getDb() {
+  // Turso (Vercel / TURSO_DATABASE_URL) > SQLite (local dev)
   if (process.env.TURSO_DATABASE_URL) {
     if (!_tursoDb) _tursoDb = createTursoDb();
     return _tursoDb;

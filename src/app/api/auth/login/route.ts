@@ -3,11 +3,6 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyPassword, signToken, sessionCookieOptions } from "@/lib/auth";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-function getD1(): D1Database | undefined {
-  try { return (getCloudflareContext() as any).env?.DB; } catch { return undefined; }
-}
 
 export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
@@ -16,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "username と password は必須です" }, { status: 400 });
   }
 
-  const db = getDb(getD1());
+  const db = getDb();
   const [user] = await db.select().from(users).where(eq(users.username, username));
 
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {

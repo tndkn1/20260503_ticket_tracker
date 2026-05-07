@@ -3,17 +3,12 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { jwtVerify } from "jose";
 
 function getSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET env var is not set");
   return new TextEncoder().encode(secret);
-}
-
-function getD1(): D1Database | undefined {
-  try { return (getCloudflareContext() as any).env?.DB; } catch { return undefined; }
 }
 
 interface GitHubUser {
@@ -93,7 +88,7 @@ export async function GET(req: NextRequest) {
     const githubId = String(ghUser.id);
     const username = ghUser.login;
 
-    const db = getDb(getD1());
+    const db = getDb();
 
     // Find existing user by github_id or email
     let [user] = await db.select().from(users).where(eq(users.githubId, githubId));
