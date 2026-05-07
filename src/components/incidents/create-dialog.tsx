@@ -33,7 +33,6 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
     description: "",
     priority: "p3",
     assignee: "",
-    reporter: "",
   });
 
   function handleChange(
@@ -44,8 +43,8 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.title || !form.description || !form.reporter) {
-      toast.error("タイトル・説明・報告者は必須です");
+    if (!form.title || !form.description) {
+      toast.error("タイトルと説明は必須です");
       return;
     }
     setLoading(true);
@@ -57,7 +56,7 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success("インシデントを起票しました");
-      setForm({ title: "", description: "", priority: "p3", assignee: "", reporter: "" });
+      setForm({ title: "", description: "", priority: "p3", assignee: "" });
       onOpenChange(false);
       onCreated();
     } catch (err: any) {
@@ -125,17 +124,6 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
                 placeholder="未割り当て"
               />
             </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="reporter">報告者 *</Label>
-            <Input
-              id="reporter"
-              name="reporter"
-              value={form.reporter}
-              onChange={handleChange}
-              placeholder="あなたの名前"
-              required
-            />
           </div>
           <DialogFooter>
             <Button

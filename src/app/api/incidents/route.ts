@@ -45,12 +45,17 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const db = getDb(getD1());
-  const body = await req.json();
-  const { title, description, priority = "p3", assignee, reporter } = body;
+  const reporter = req.headers.get("x-username");
+  if (!reporter) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  if (!title || !description || !reporter) {
+  const body = await req.json();
+  const { title, description, priority = "p3", assignee } = body;
+
+  if (!title || !description) {
     return NextResponse.json(
-      { error: "title, description, reporter are required" },
+      { error: "title and description are required" },
       { status: 400 }
     );
   }
