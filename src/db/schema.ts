@@ -67,6 +67,11 @@ export const users = sqliteTable("users", {
     .default(sql`(unixepoch('now') * 1000)`),
 });
 
+export const sequences = sqliteTable("sequences", {
+  name: text("name").primaryKey(),
+  value: integer("value").notNull().default(0),
+});
+
 export type Incident = typeof incidents.$inferSelect;
 export type NewIncident = typeof incidents.$inferInsert;
 export type AuditLogEntry = typeof auditLog.$inferSelect;

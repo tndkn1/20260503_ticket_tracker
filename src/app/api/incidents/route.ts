@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { incidents, auditLog } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { incidents, auditLog, sequences } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 import { computeSlaDeadlines } from "@/lib/sla";
 import { notifyIncidentCreated } from "@/lib/slack";
@@ -50,9 +50,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const existing = await db.select().from(incidents);
+  // sequences テーブルの incident カウンターをインクリメント
+  const [current] = await db.select().from(sequences).where(eq(sequences.name, "incident"));
+  const nextVal = (current?.value ?? 0) + 1;
+  if (current) {
+    await db.update(sequences).set({ value: nextVal }).where(eq(sequences.name, "incident"));
+  } else {
+    await db.insert(sequences).values({ name: "incident", value: nextVal });
+  }
+
   const now = Date.now();
-  const id = generateId(existing.length + 1);
+  const id = generateId(nextVal);
   const { slaResponseDeadline, slaResolveDeadline } = computeSlaDeadlines(priority, now);
 
   const newIncident = {

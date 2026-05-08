@@ -65,6 +65,13 @@ async function migrate() {
     role TEXT NOT NULL DEFAULT 'member',
     created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
   );
+
+  CREATE TABLE IF NOT EXISTS sequences (
+    name TEXT PRIMARY KEY,
+    value INTEGER NOT NULL DEFAULT 0
+  );
+
+  INSERT OR IGNORE INTO sequences (name, value) VALUES ('incident', 0);
 `);
   console.log("Turso migration complete:", url);
   client.close();

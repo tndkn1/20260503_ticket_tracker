@@ -51,6 +51,13 @@ function migrate() {
     INSERT OR IGNORE INTO sla_config VALUES ('p3', 240, 1440);
     INSERT OR IGNORE INTO sla_config VALUES ('p4', 1440, 4320);
 
+    CREATE TABLE IF NOT EXISTS sequences (
+      name TEXT PRIMARY KEY,
+      value INTEGER NOT NULL DEFAULT 0
+    );
+
+    INSERT OR IGNORE INTO sequences (name, value) VALUES ('incident', 0);
+
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
