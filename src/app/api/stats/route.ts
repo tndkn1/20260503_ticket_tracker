@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
+import { isNull } from "drizzle-orm";
 
 export async function GET() {
   const db = getDb();
-  const all = await db.select().from(incidents);
+  const all = await db.select().from(incidents).where(isNull(incidents.deletedAt));
 
   const total = all.length;
   const byStatus = {

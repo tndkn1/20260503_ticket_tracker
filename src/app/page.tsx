@@ -13,8 +13,11 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatCard } from "@/components/stat-card";
 import { IncidentTable } from "@/components/incidents/incident-table";
 import { CreateIncidentDialog } from "@/components/incidents/create-dialog";
-import { Plus, RefreshCw, AlertTriangle } from "lucide-react";
+import { Plus, RefreshCw, AlertTriangle, Trash2 } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import type { Incident } from "@/db/schema";
 
 interface Stats {
@@ -44,14 +47,27 @@ export default function HomePage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [search, setSearch] = useState("");
+  const [role, setRole] = useState<"admin" | "member" | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setRole(data?.user?.role ?? null))
+      .catch(() => {});
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setSelectedIds(new Set());
     try {
       const params = new URLSearchParams();
       if (filterStatus !== "all") params.set("status", filterStatus);
       if (filterPriority !== "all") params.set("priority", filterPriority);
       if (search) params.set("q", search);
+      if (showDeleted) params.set("includeDeleted", "true");
 
       const [incRes, statsRes] = await Promise.all([
         fetch(`/api/incidents?${params}`),
@@ -67,13 +83,33 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterPriority, search]);
+  }, [filterStatus, filterPriority, search, showDeleted]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  async function handleDelete() {
+    if (selectedIds.size === 0) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/incidents", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error();
+      const { deleted } = await res.json();
+      toast.success(`${deleted} 件のインシデントを削除しました`);
+      fetchData();
+    } catch {
+      toast.error("削除に失敗しました");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -167,6 +203,20 @@ export default function HomePage() {
                   <SelectItem value="p4">P4 Low</SelectItem>
                 </SelectContent>
               </Select>
+
+              {role === "admin" && (
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="show-deleted"
+                    checked={showDeleted}
+                    onCheckedChange={setShowDeleted}
+                  />
+                  <Label htmlFor="show-deleted" className="text-xs text-muted-foreground cursor-pointer">
+                    削除済みを表示
+                  </Label>
+                </div>
+              )}
+
               <Button
                 variant="outline"
                 size="icon"
@@ -175,10 +225,28 @@ export default function HomePage() {
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
+
+              {role === "admin" && selectedIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  {selectedIds.size} 件を削除
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <IncidentTable incidents={incidents} now={now} />
+            <IncidentTable
+              incidents={incidents}
+              now={now}
+              role={role ?? undefined}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+            />
           </CardContent>
         </Card>
       </main>
