@@ -5,6 +5,7 @@ import { desc, eq, isNull, isNotNull } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 import { computeSlaDeadlines } from "@/lib/sla";
 import { notifyIncidentCreated } from "@/lib/slack";
+import { getSession } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const db = getDb();
@@ -106,12 +107,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const role = req.headers.get("x-user-role");
-  const actor = req.headers.get("x-username");
-
-  if (role !== "admin") {
+  const session = await getSession();
+  if (!session || session.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const actor = session.username;
 
   const { ids } = await req.json() as { ids: string[] };
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -129,7 +129,7 @@ export async function DELETE(req: NextRequest) {
 
     await db.insert(auditLog).values({
       incidentId: id,
-      actor: actor ?? "admin",
+      actor,
       field: "deleted_at",
       oldValue: null,
       newValue: String(now),
