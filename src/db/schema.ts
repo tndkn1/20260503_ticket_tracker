@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const incidents = sqliteTable("incidents", {
@@ -26,6 +26,7 @@ export const incidents = sqliteTable("incidents", {
   slaResolveBreached: integer("sla_resolve_breached", { mode: "boolean" })
     .notNull()
     .default(false),
+  deletedAt: integer("deleted_at"),
   createdAt: integer("created_at")
     .notNull()
     .default(sql`(unixepoch('now') * 1000)`),

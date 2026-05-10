@@ -67,13 +67,15 @@
 
 #### 4.2.1 インシデント一覧
 
-- 全インシデントを起票日時の降順で一覧表示する
-- 表示項目：ID、タイトル、優先度、ステータス、SLA（解決）、起票者、担当者、起票日
+- 全インシデントを起票日時の降順で一覧表示する（削除済みは除外）
+- 表示項目：チェックボックス、ID、タイトル、優先度、ステータス、SLA（解決）、起票者、担当者、起票日
 - フィルタリング機能：
   - キーワード検索（タイトル・説明・起票者）
   - 優先度フィルタ（全件 / p1 / p2 / p3 / p4）
   - ステータスボタン（new / assigned / in_progress / resolved / closed）
+  - 「削除済みを表示」トグル（admin のみ）— 削除済みインシデントのみを表示
 - 行クリックでインシデント詳細画面へ遷移する
+- チェックボックスで削除対象を選択できる（admin のみ選択可）
 
 #### 4.2.2 インシデント起票
 
@@ -123,6 +125,17 @@
 - resolved / closed への遷移時に `resolvedAt` を記録する
 - ステータス変更時に Slack 通知を送信する
 - 変更されたフィールドすべての監査ログを記録する
+
+#### 4.2.5 インシデント削除（論理削除）
+
+- 削除できるのは `admin` ロールのユーザーのみ
+- 一覧画面のチェックボックスで複数選択し、一括論理削除できる
+- `member` ロールではチェックボックスを選択できない
+- 論理削除：`deleted_at` に削除日時（unix ms）を記録し、物理削除は行わない
+- 削除されたインシデントは通常の一覧・統計から除外される
+- admin は「削除済みを表示」トグルで削除済みインシデントのみを一覧表示できる
+- 削除済み行は取り消し線・半透明・「削除済」バッジで視覚的に区別される
+- 削除操作の監査ログを記録する（`field: "deleted_at"`）
 
 ---
 
@@ -229,6 +242,7 @@
 | sla_resolve_deadline | INTEGER | SLA 解決期限（unix ms） |
 | sla_response_breached | BOOLEAN | SLA 応答違反フラグ |
 | sla_resolve_breached | BOOLEAN | SLA 解決違反フラグ |
+| deleted_at | INTEGER | 論理削除日時（unix ms、nullable） |
 | created_at | INTEGER | 作成日時（unix ms） |
 | updated_at | INTEGER | 更新日時（unix ms） |
 
@@ -293,8 +307,9 @@
 | GET | `/api/auth/github/callback` | GitHub OAuth コールバック |
 | POST | `/api/auth/logout` | ログアウト |
 | GET | `/api/auth/me` | ログインユーザー情報取得 |
-| GET | `/api/incidents` | インシデント一覧取得 |
+| GET | `/api/incidents` | インシデント一覧取得（`?includeDeleted=true` で削除済みのみ、admin のみ） |
 | POST | `/api/incidents` | インシデント起票 |
+| DELETE | `/api/incidents` | インシデント一括論理削除（admin のみ） |
 | GET | `/api/incidents/[id]` | インシデント詳細・監査ログ取得 |
 | PATCH | `/api/incidents/[id]` | インシデント更新 |
 | POST | `/api/sla-check` | SLA 違反チェック（定期実行） |

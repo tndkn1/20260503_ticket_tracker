@@ -69,6 +69,12 @@ function migrate() {
     );
   `);
 
+  // Migration: add deleted_at column if not present
+  const incCols = db.pragma("table_info(incidents)") as { name: string }[];
+  if (!incCols.some((c) => c.name === "deleted_at")) {
+    db.exec(`ALTER TABLE incidents ADD COLUMN deleted_at INTEGER;`);
+  }
+
   // Migration: make password_hash nullable and add github_id if not present
   const cols = db.pragma("table_info(users)") as { name: string }[];
   const hasGithubId = cols.some((c) => c.name === "github_id");

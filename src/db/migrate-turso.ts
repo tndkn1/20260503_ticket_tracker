@@ -73,6 +73,13 @@ async function migrate() {
 
   INSERT OR IGNORE INTO sequences (name, value) VALUES ('incident', 0);
 `);
+
+  // Migration: add deleted_at column if not present
+  try {
+    await client.execute(`ALTER TABLE incidents ADD COLUMN deleted_at INTEGER;`);
+  } catch {
+    // column already exists — ignore
+  }
   console.log("Turso migration complete:", url);
   client.close();
 }
