@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents, auditLog, sequences } from "@/db/schema";
-import { desc, eq, isNull, isNotNull } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { generateId } from "@/lib/id";
 import { computeSlaDeadlines } from "@/lib/sla";
 import { notifyIncidentCreated } from "@/lib/slack";
@@ -19,14 +19,16 @@ export async function GET(req: NextRequest) {
   const rows = await db
     .select()
     .from(incidents)
-    .where(
-      includeDeleted && role === "admin"
-        ? isNotNull(incidents.deletedAt)
-        : isNull(incidents.deletedAt)
-    )
     .orderBy(desc(incidents.createdAt));
 
   const filtered = rows.filter((r) => {
+    // deleted_at フィルタ（カラムが DB に存在しない場合も null 扱いで正常動作）
+    const isDeleted = r.deletedAt != null;
+    if (includeDeleted && role === "admin") {
+      if (!isDeleted) return false;
+    } else {
+      if (isDeleted) return false;
+    }
     if (status && r.status !== status) return false;
     if (priority && r.priority !== priority) return false;
     if (q) {

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
-import { isNull } from "drizzle-orm";
 
 export async function GET() {
   const db = getDb();
-  const all = await db.select().from(incidents).where(isNull(incidents.deletedAt));
+  const rows = await db.select().from(incidents);
+  // deleted_at が存在しない（未マイグレーション）場合も null 扱いで正常動作
+  const all = rows.filter((r) => r.deletedAt == null);
 
   const total = all.length;
   const byStatus = {
