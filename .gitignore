@@ -49,6 +49,9 @@ next-env.d.ts
 # Cloudflare / OpenNext build output
 /.open-next/
 
+# media files
+*.mp4
+
 # Claude Code（ローカル開発ツールの設定。デプロイ不要）
 .claude/
 
