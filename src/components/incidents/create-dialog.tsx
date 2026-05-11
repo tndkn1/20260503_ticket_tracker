@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,24 +24,30 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  defaultAssignee?: string;
 }
 
-export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
+export function CreateIncidentDialog({ open, onOpenChange, onCreated, defaultAssignee }: Props) {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
     priority: "p3",
-    assignee: "",
+    assignee: defaultAssignee ?? "",
   });
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
+  // ダイアログが開くたびにフォームをリセットし担当者をログインユーザーで初期化
+  useEffect(() => {
+    if (open) {
+      setForm({ title: "", description: "", priority: "p3", assignee: defaultAssignee ?? "" });
+    }
+  }, [open, defaultAssignee]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!form.title || !form.description) {
       toast.error("タイトルと説明は必須です");
@@ -56,11 +62,10 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success("インシデントを起票しました");
-      setForm({ title: "", description: "", priority: "p3", assignee: "" });
       onOpenChange(false);
       onCreated();
-    } catch (err: any) {
-      toast.error(err.message ?? "エラーが発生しました");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }
@@ -126,11 +131,7 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               キャンセル
             </Button>
             <Button type="submit" disabled={loading}>

@@ -48,6 +48,7 @@ export default function HomePage() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<"admin" | "member" | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleted, setShowDeleted] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -55,7 +56,10 @@ export default function HomePage() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => setRole(data?.user?.role ?? null))
+      .then((data) => {
+        setRole(data?.user?.role ?? null);
+        setUsername(data?.user?.username ?? null);
+      })
       .catch(() => {});
   }, []);
 
@@ -255,6 +259,7 @@ export default function HomePage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={fetchData}
+        defaultAssignee={username ?? undefined}
       />
     </div>
   );
