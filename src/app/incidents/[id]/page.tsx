@@ -76,6 +76,14 @@ export default function IncidentDetailPage({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
 
+  // ログインユーザー名をデフォルトの更新者として設定
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.user?.username) setActor((prev) => prev || data.user.username); })
+      .catch(() => {});
+  }, []);
+
   async function fetchIncident() {
     const res = await fetch(`/api/incidents/${id}`);
     if (!res.ok) { router.push("/"); return; }
