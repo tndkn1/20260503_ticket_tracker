@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,12 +36,16 @@ export function CreateIncidentDialog({ open, onOpenChange, onCreated, defaultAss
     assignee: defaultAssignee ?? "",
   });
 
-  // ダイアログが開くたびにフォームをリセットし担当者をログインユーザーで初期化
+  // defaultAssignee の最新値を ref で保持（open の effect から参照するため）
+  const defaultAssigneeRef = useRef(defaultAssignee);
+  useEffect(() => { defaultAssigneeRef.current = defaultAssignee; }, [defaultAssignee]);
+
+  // open が false→true になった時だけフォームをリセット（入力中のリセットを防ぐ）
   useEffect(() => {
     if (open) {
-      setForm({ title: "", description: "", priority: "p3", assignee: defaultAssignee ?? "" });
+      setForm({ title: "", description: "", priority: "p3", assignee: defaultAssigneeRef.current ?? "" });
     }
-  }, [open, defaultAssignee]);
+  }, [open]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
