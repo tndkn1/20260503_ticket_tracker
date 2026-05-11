@@ -80,7 +80,7 @@ export default function IncidentDetailPage({
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.user?.username) setActor(data.user.username); })
+      .then((data) => { if (data?.user?.username) setActor((prev) => prev || data.user.username); })
       .catch(() => {});
   }, []);
 
