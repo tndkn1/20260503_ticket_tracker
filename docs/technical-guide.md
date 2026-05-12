@@ -1,801 +1,232 @@
-# 機能デモンストレーション & 技術ガイド
+# 技術ガイド
 
-本ドキュメントは、ITSM インシデント管理システムの各機能の実装・動作・設計思想を開発者向けに詳しく解説します。
+このドキュメントは、現在の実装に基づく開発者向けガイドです。
 
----
+## アーキテクチャ
 
-## 目次
+- App Router の `src/app` 配下に画面と Route Handlers を配置している。
+- UI は主に Client Component で実装している。
+- API は `src/app/api/**/route.ts` に集約している。
+- DB アクセスは `src/db/index.ts` の `getDb()` 経由で行う。
+- `TURSO_DATABASE_URL` がある場合は Turso/libSQL、ない場合はローカル SQLite を使用する。
 
-1. [認証システム](#認証システム)
-2. [インシデント管理](#インシデント管理)
-3. [SLA 管理](#sla-管理)
-4. [ダッシュボード](#ダッシュボード)
-5. [監査ログ](#監査ログ)
-6. [Slack 統合](#slack-統合)
-7. [API 仕様](#api-仕様)
+## 主要ディレクトリ
 
----
+| パス | 内容 |
+|---|---|
+| `src/app/page.tsx` | KPI とインシデント一覧 |
+| `src/app/login/page.tsx` | ログイン画面 |
+| `src/app/incidents/[id]/page.tsx` | 詳細・更新画面 |
+| `src/app/api` | 認証、インシデント、統計、SLA API |
+| `src/components` | UI とインシデント関連コンポーネント |
+| `src/db` | Drizzle スキーマ、マイグレーション、seed |
+| `src/lib` | 認証、ID、SLA、Slack、汎用ユーティリティ |
+| `migrations` | 手動 SQL マイグレーション履歴 |
 
-## 認証システム
+## 認証
 
-### 1.1 概要
+### セッション
 
-本システムの認証は 2 つの方式に対応：
-- **パスワード認証** — PBKDF2（100,000 イテレーション）でハッシュ化
-- **GitHub OAuth** — OAuth 2.0 フロー + メール自動リンク
+`src/lib/auth.ts` が JWT の署名、検証、Cookie オプション、PBKDF2 ハッシュを提供する。
 
-### 1.2 パスワード認証フロー
+- Cookie 名: `itsm_session`
+- 有効期限: 8 時間
+- Cookie 属性: HttpOnly / SameSite=Lax / 本番 Secure
+- JWT payload: `userId`、`username`、`email`、`role`
 
-```
-ユーザー入力
-    ↓
-[POST /api/auth/login]
-    ├─ ユーザー名でユーザー検索
-    ├─ 入力パスワード + salt を PBKDF2 ハッシュ化
-    ├─ DB のハッシュと定数時間比較
-    └─ 成功時：JWT セッション Cookie 発行
-        ├─ 有効期限：8 時間
-        ├─ HttpOnly / SameSite=Lax / Secure（本番）
-        └─ ペイロード：{ userId, role, iat, exp }
-```
+### パスワードログイン
 
-**実装ポイント：**
-- パスワード比較は定数時間比較で、タイミング攻撃を防止
-- PBKDF2 は jose ライブラリの `pbkdf2` 関数を使用
-- Cookie は自動的にブラウザで管理、JS からアクセス不可
+`POST /api/auth/login`
 
-### 1.3 GitHub OAuth フロー
+1. `username` と `password` を受け取る。
+2. `users.username` でユーザーを検索する。
+3. `password_hash` と入力パスワードを PBKDF2 で検証する。
+4. 成功時に JWT Cookie をセットしてユーザー情報を返す。
 
-```
-ユーザー: [GitHub でログイン] クリック
-    ↓
-[GET /api/auth/github]
-    ├─ JWT 署名付き state パラメータを生成
-    ├─ GitHub OAuth URL に state を含めてリダイレクト
-    └─ CSRF 対策：state を Cookie ではなく JWT で署名
-        
-GitHub ユーザー認可
-    ↓
-[GET /api/auth/github/callback?code=...&state=...]
-    ├─ state JWT を検証（署名・有効期限）
-    ├─ コールバック code で アクセストークン取得
-    ├─ GitHub API でユーザー情報・メール取得
-    ├─ メールで既存ユーザーを検索
-    │  ├─ 見つかった → GitHub ID を紐付け
-    │  └─ 見つからない → 新規ユーザーを member ロールで作成
-    └─ セッション Cookie 発行
-        
-ダッシュボード遷移
-```
+### GitHub OAuth
 
-**実装ポイント：**
-- CSRF state は JWT 署名で保護（Cookie 不要）
-- 初回ログイン時に自動ユーザー作成（member ロール）
-- メールで既存ユーザーを自動検索・リンク
+`GET /api/auth/github`
 
-### 1.4 セッション管理
+- `from` クエリを JWT 署名付き `state` に入れる。
+- `scope=read:user user:email` で GitHub 認可画面へリダイレクトする。
+- `GITHUB_CLIENT_ID` 未設定時は 503 を返す。
 
-**ルート保護：**
+`GET /api/auth/github/callback`
 
-| パス | 認証 | リダイレクト |
-|-----|:---:|-----------|
-| `/login` | ✗ | （認証済みなら `/` へ） |
-| `/api/auth/login` | ✗ | — |
-| `/api/auth/github` | ✗ | — |
-| `/api/auth/github/callback` | ✗ | — |
-| その他すべて | ✓ | 未認証は `/login?from=<元パス>` へ |
+- `state` の署名と期限を検証する。
+- `code` をアクセストークンへ交換する。
+- GitHub user API と email API からユーザー情報を取得する。
+- `github_id`、次に `email` で既存ユーザーを検索する。
+- 既存ユーザーに `github_id` がなければリンクする。
+- 存在しなければ `member` ロールで自動作成する。
+- 成功時は `from` へリダイレクトする。
 
-**中間ウェア実装（middleware.ts）：**
+### ルート保護
 
-```typescript
-// 認証チェックと自動リダイレクト
-export function middleware(request: NextRequest) {
-  // セッション Cookie から JWT を取得
-  // 有効期限・署名を検証
-  // 無効 → /login へリダイレクト
+`src/middleware.ts` が保護を担当する。
+
+公開パス:
+
+- `/login`
+- `/api/auth/login`
+- `/api/auth/github`
+- `/api/auth/github/callback`
+- `/_next`
+- `/favicon`
+
+それ以外は JWT を検証し、未認証なら `/login?from=<pathname>` へリダイレクトする。認証済みリクエストには `x-user-id`、`x-username`、`x-user-role` をレスポンスヘッダーとして付与する。
+
+## データアクセス
+
+`getDb()` は環境変数で接続先を切り替える。
+
+```ts
+if (process.env.TURSO_DATABASE_URL) {
+  // Turso/libSQL
+} else {
+  // better-sqlite3: DB_PATH or data/itsm.db
 }
 ```
 
----
+ローカルマイグレーションは `src/db/migrate.ts`、Turso マイグレーションは `src/db/migrate-turso.ts` が担当する。どちらも `deleted_at` 追加済みスキーマに対応している。
 
-## インシデント管理
+## インシデント API
 
-### 2.1 概要
+### `GET /api/incidents`
 
-インシデントの起票・追跡・解決を一元管理します。
+クエリ:
 
-**ライフサイクル：**
+| 名前 | 内容 |
+|---|---|
+| `status` | 一致するステータスのみ |
+| `priority` | 一致する優先度のみ |
+| `q` | タイトル、説明、起票者を部分一致検索 |
+| `includeDeleted=true` | admin の場合のみ削除済みだけを返す |
 
-```
-起票（new）
-    ↓
-割当・開始（assigned → in_progress）
-    ↓
-解決（resolved）
-    ↓
-クローズ（closed）
-```
+実装上、まず削除済み条件で DB 取得し、その後 `status`、`priority`、`q` をメモリ上でフィルタする。
 
-### 2.2 インシデント起票
+### `POST /api/incidents`
 
-**エンドポイント：**
-```
-POST /api/incidents
-Content-Type: application/json
+必須:
 
+- `title`
+- `description`
+
+任意:
+
+- `priority`。未指定時 `p3`
+- `assignee`
+
+処理:
+
+1. `x-username` から起票者を決定する。
+2. `sequences.name = incident` を更新し、`INC-0001` 形式の ID を作る。
+3. `computeSlaDeadlines()` で期限を計算する。
+4. `incidents` に作成する。
+5. `audit_log` に `status = new` の起票ログを入れる。
+6. Slack 起票通知を送る。
+
+### `DELETE /api/incidents`
+
+- `getSession()` でセッションを読み、`admin` 以外は 403。
+- body は `{ "ids": ["INC-0001"] }`。
+- 対象ごとに `deleted_at` と `updated_at` を更新する。
+- `audit_log` に `field = deleted_at` を記録する。
+
+### `GET /api/incidents/[id]`
+
+レスポンス:
+
+```json
 {
-  "title": "ログインシステムが応答しない",
-  "description": "午前9時ごろからログインが失敗するようになりました",
-  "priority": "p1",           // 任意、デフォルト: p3
-  "assignee": "operator_001"  // 任意
+  "incident": {},
+  "log": []
 }
 ```
 
-**サーバー処理：**
+監査ログは API では昇順で返し、画面側で反転して新しい順に表示する。
 
-```
-1. 入力バリデーション
-   ├─ title / description: 必須
-   ├─ priority: p1 | p2 | p3 | p4（デフォルト p3）
-   └─ assignee: 存在するユーザーか確認
+### `PATCH /api/incidents/[id]`
 
-2. ID 採番
-   ├─ sequences テーブルから incident の値を取得
-   ├─ "INC-{value}" で ID 作成
-   └─ sequences を increment
+必須:
 
-3. SLA 期限計算
-   ├─ priority に応じた SLA 設定を取得（sla_config）
-   ├─ 現在時刻 + 期限（分）= deadline（Unix ms）
-   └─ sla_response_deadline / sla_resolve_deadline に保存
+- `actor`
 
-4. インシデント作成
-   └─ incidents テーブルに INSERT
-      ├─ status: "new"
-      ├─ reporter: ログインユーザー（自動設定）
-      ├─ created_at: 現在時刻
-      └─ updated_at: 現在時刻
+更新対象:
 
-5. 監査ログ記録
-   └─ audit_log テーブルに INSERT（field=各フィールド）
+- `status`
+- `priority`
+- `assignee`
+- `title`
+- `description`
+- `comment`
 
-6. Slack 通知
-   └─ SLACK_WEBHOOK_URL が設定されていれば通知送信
-      ├─ 優先度絵文字（🔴 P1 等）
-      ├─ インシデント ID / タイトル
-      ├─ 起票者
-      └─ ステータス
+変更があったフィールドごとに監査ログを作成する。コメントがあり、他フィールド変更がない場合は `field = comment` としてコメントのみ記録する。
 
-レスポンス: 201 Created
-{
-  "id": "INC-0001",
-  "title": "...",
-  "status": "new",
-  "priority": "p1",
-  "sla_response_deadline": 1715330700000,
-  "sla_resolve_deadline": 1715345100000,
-  ...
-}
-```
+自動処理:
 
-### 2.3 インシデント更新
+- `new` から別ステータスへ初回遷移した場合、`responded_at` を設定する。
+- `resolved` または `closed` へ初回遷移した場合、`resolved_at` を設定する。
+- その時点で期限超過していれば SLA 違反フラグを立てる。
+- ステータス変更時のみ Slack 通知を送る。
 
-**エンドポイント：**
-```
-PATCH /api/incidents/[id]
-Content-Type: application/json
+注意:
 
-{
-  "status": "in_progress",    // 任意
-  "priority": "p2",           // 任意
-  "assignee": "admin",        // 任意
-  "title": "...",             // 任意
-  "comment": "対応中"         // 任意（監査ログにのみ記録）
-}
-```
+- サーバー側ではステータス遷移の妥当性を強制していない。
+- クイック遷移の制御は UI 上の補助である。
 
-**サーバー処理：**
+## SLA
 
-```
-1. インシデント取得
-   └─ 指定 ID が存在するか確認
+`src/lib/sla.ts` に SLA のデフォルト値と表示用ヘルパーがある。
 
-2. ステータス遷移時の自動処理
-   ├─ new 以外への初回遷移
-   │  └─ responded_at を現在時刻に設定
-   ├─ resolved / closed への遷移
-   │  └─ resolved_at を現在時刻に設定
-   └─ 遷移ルール（UI 設計指針、サーバー側では強制しない）
-      ├─ new      → assigned | in_progress | closed
-      ├─ assigned → in_progress | resolved | closed
-      ├─ in_progress → resolved | closed
-      ├─ resolved → closed | in_progress
-      └─ closed  → （遷移不可）
+| 優先度 | 応答 | 解決 |
+|---|---:|---:|
+| `p1` | 15 分 | 240 分 |
+| `p2` | 60 分 | 480 分 |
+| `p3` | 240 分 | 1440 分 |
+| `p4` | 1440 分 | 4320 分 |
 
-3. フィールド更新
-   └─ incidents テーブルを UPDATE
-      ├─ status / priority / assignee / title の変更を適用
-      └─ updated_at を現在時刻に更新
+`POST /api/sla-check` は `resolved` と `closed` 以外を対象にする。未検知の違反だけを更新し、Slack に通知する。レスポンスは以下。
 
-4. 監査ログ記録
-   └─ 変更されたフィールドごとに audit_log に INSERT
-      ├─ incident_id / actor / field
-      ├─ old_value / new_value / comment
-      └─ created_at: 現在時刻
-
-5. Slack 通知
-   ├─ ステータス変更 → 変更者・変更前後ステータスを通知
-   └─ SLA 違反（sla_response_breached / sla_resolve_breached） → 違反アラート
-
-レスポンス: 200 OK
-{ 更新後のインシデント情報 }
-```
-
-### 2.4 SLA 状態の自動設定
-
-**初回応答の自動記録：**
-
-```
-ステータス遷移（new → 他）時
-    ↓
-responded_at が未設定
-    ↓
-現在時刻を responded_at に設定
-    ↓
-sla_response_breached を確認
-    ├─ 現在時刻 > sla_response_deadline → true
-    └─ 現在時刻 <= sla_response_deadline → false
-```
-
-**解決の自動記録：**
-
-```
-ステータス遷移（→ resolved / closed）時
-    ↓
-resolved_at が未設定
-    ↓
-現在時刻を resolved_at に設定
-    ↓
-sla_resolve_breached を確認
-    ├─ 現在時刻 > sla_resolve_deadline → true
-    └─ 現在時刻 <= sla_resolve_deadline → false
-```
-
----
-
-## SLA 管理
-
-### 3.1 SLA 設定
-
-**デフォルト設定（sla_config テーブル）：**
-
-| priority | response_minutes | resolve_minutes |
-|----------|-----------------|-----------------|
-| p1 | 15 | 240 |
-| p2 | 60 | 480 |
-| p3 | 240 | 1440 |
-| p4 | 1440 | 4320 |
-
-**期限計算式：**
-
-```
-sla_response_deadline = インシデント作成時刻 + (response_minutes × 60 × 1000)
-sla_resolve_deadline = インシデント作成時刻 + (resolve_minutes × 60 × 1000)
-```
-
-### 3.2 SLA バッジ表示ロジック
-
-**フロントエンド実装：**
-
-```typescript
-// 60秒ごとに now を更新
-setInterval(() => {
-  setNow(Date.now());
-}, 60000);
-
-// 残り時間を計算・表示
-function formatSlaRemaining(deadline: number, responded: boolean) {
-  if (responded) return "応答済";
-  
-  const remaining = deadline - now;
-  if (remaining < 0) {
-    return `${Math.abs(remaining) / 60000 | 0}m 超過`; // 赤
-  }
-  
-  const hours = Math.floor(remaining / 3600000);
-  const minutes = Math.floor((remaining % 3600000) / 60000);
-  
-  if (remaining < 30 * 60000) {
-    return `${hours}h ${minutes}m`; // オレンジ（警告）
-  }
-  return `${hours}h ${minutes}m`; // 緑（正常）
-}
-
-// バッジの背景色
-function getSlaColor(deadline: number, responded: boolean): string {
-  if (responded) return "bg-blue-100";
-  
-  const remaining = deadline - now;
-  if (remaining < 0) return "bg-red-100";         // 赤：超過
-  if (remaining < 30 * 60000) return "bg-orange-100"; // オレンジ：警告
-  return "bg-green-100";                          // 緑：正常
-}
-```
-
-### 3.3 SLA 違反チェック API
-
-**エンドポイント：**
-```
-POST /api/sla-check
-
-自動実行：cron / Vercel Cron Function / 外部スケジューラー
-```
-
-**処理フロー：**
-
-```
-1. アクティブなインシデントを取得
-   └─ status が new | assigned | in_progress のもの
-
-2. 各インシデントについて期限チェック
-   ├─ 応答期限チェック
-   │  ├─ responded_at が未設定 && 現在時刻 > sla_response_deadline
-   │  └─ sla_response_breached = true
-   │
-   └─ 解決期限チェック
-      ├─ resolved_at が未設定 && 現在時刻 > sla_resolve_deadline
-      └─ sla_resolve_breached = true
-
-3. 違反検知時の処理
-   ├─ incidents テーブルを UPDATE
-   ├─ audit_log に記録
-   └─ Slack アラート送信
-      ├─ インシデント ID / タイトル
-      ├─ 違反種別（応答 or 解決）
-      └─ 超過時間
-
-レスポンス: 200 OK
+```json
 {
   "checked": 8,
-  "breached": 2,
-  "alerts": [
-    { "incidentId": "INC-0008", "type": "resolve", "overdueMs": 300000 },
-    ...
-  ]
+  "responseBreached": 1,
+  "resolveBreached": 2
 }
 ```
 
----
+## 統計 API
 
-## ダッシュボード
+`GET /api/stats` は削除済みを除外して集計する。
 
-### 4.1 KPI 計算ロジック
-
-**エンドポイント：**
-```
-GET /api/stats
-```
-
-**計算内容：**
-
-```typescript
-interface StatsResponse {
-  totalIncidents: number;      // COUNT(*)
-  openIncidents: number;        // COUNT WHERE status IN (new, assigned, in_progress)
-  p1Active: number;             // COUNT WHERE status != closed AND priority = p1
-  slaResponseBreach: number;    // COUNT WHERE sla_response_breached = true
-  slaResolveBreach: number;     // COUNT WHERE sla_resolve_breached = true
-  avgResolutionTimeMs: number;  // AVG(resolved_at - created_at) WHERE resolved_at IS NOT NULL
-}
-```
-
-### 4.2 統計情報の自動更新
-
-**設計方針：**
-- 自動再取得なし
-- ユーザーの**手動リロード**またはフィルタ変更時に再取得
-- 理由：SLA 計算は 60 秒ごとだが、統計は頻繁に変わらない
-
-**実装：**
-
-```typescript
-// ダッシュボード読み込み時
-useEffect(() => {
-  fetchStats();
-}, []);
-
-// フィルタ変更時
-const handleFilterChange = (status: string) => {
-  fetchStats(); // 再取得
-};
-
-// 手動リロード
-<button onClick={() => fetchStats()}>🔄 リロード</button>
-```
-
----
-
-## 監査ログ
-
-### 5.1 ログ記録対象
-
-**フィールド変更ログ：**
-- status / priority / assignee / title / responded_at / resolved_at
-- 各変更時に old_value / new_value / actor / timestamp を記録
-
-**コメントログ：**
-- コメント入力時も audit_log に記録
-- field = "comment" で、new_value = コメント内容
-
-### 5.2 ログの保存形式
-
-```
-audit_log テーブル
-
-id: 1
-incident_id: "INC-0001"
-actor: "admin"
-field: "status"
-old_value: "new"
-new_value: "in_progress"
-comment: NULL
-created_at: 1715330745000
-
-id: 2
-incident_id: "INC-0001"
-actor: "operator_001"
-field: "comment"
-old_value: NULL
-new_value: "対応中です"
-comment: NULL
-created_at: 1715330800000
-```
-
-### 5.3 タイムライン表示
-
-**フロントエンド実装：**
-
-```typescript
-// インシデント詳細ページで取得
-const { timeline } = await fetch(`/api/incidents/${id}`).then(r => r.json());
-
-// 新しい順にソート
-const sortedTimeline = timeline.sort((a, b) => b.created_at - a.created_at);
-
-// レンダリング
-sortedTimeline.map(entry => (
-  <div key={entry.id}>
-    <time>{new Date(entry.created_at).toLocaleString('ja-JP')}</time>
-    <strong>{entry.actor}</strong>
-    {entry.field === 'comment' ? (
-      <p>コメント: {entry.new_value}</p>
-    ) : (
-      <p>フィールド [{entry.field}] を {entry.old_value} → {entry.new_value} に変更</p>
-    )}
-  </div>
-))
-```
-
----
-
-## Slack 統合
-
-### 6.1 Webhook 設定
-
-**環境変数：**
-```
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
-```
-
-**未設定時：**
-- Slack 通知は送信されない（エラーにはならない）
-- ログに `SLACK_WEBHOOK_URL not configured` と出力
-
-### 6.2 通知タイプ別テンプレート
-
-#### インシデント起票通知
-
-```json
+```ts
 {
-  "text": "🔴 P1 インシデント起票",
-  "blocks": [
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "*新しいインシデント*\n*ID:* INC-0001\n*タイトル:* ログインシステムが応答しない\n*優先度:* 🔴 P1 Critical\n*起票者:* admin"
-      }
-    },
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "応答期限: 15分\n解決期限: 4時間"
-      }
-    }
-  ]
+  total: number;
+  openCount: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  slaResponseBreached: number;
+  slaResolveBreached: number;
+  avgResolveMinutes: number | null;
 }
 ```
 
-#### ステータス変更通知
+平均解決時間は `resolved_at - created_at` の平均を分単位に丸める。
 
-```json
-{
-  "text": "ステータス変更",
-  "blocks": [
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "*ステータス変更*\n*ID:* INC-0001\n*変更者:* admin\n*変更前:* new → *変更後:* in_progress"
-      }
-    }
-  ]
-}
-```
+## Slack
 
-#### SLA 違反アラート
+`src/lib/slack.ts` が通知を担当する。`SLACK_WEBHOOK_URL` が未設定なら何も送信しない。送信エラーは握りつぶすため、ユーザー操作は Slack 障害で失敗しない。
 
-```json
-{
-  "text": "🚨 SLA 違反アラート",
-  "blocks": [
-    {
-      "type": "section",
-      "text": {
-        "type": "mrkdwn",
-        "text": "*SLA 違反*\n*ID:* INC-0001\n*違反種別:* 解決期限超過\n*超過時間:* 45分\n*優先度:* 🔴 P1"
-      }
-    }
-  ]
-}
-```
+通知イベント:
 
-### 6.3 実装パターン
+- 起票: `notifyIncidentCreated`
+- ステータス変更: `notifyStatusChanged`
+- SLA 違反: `notifySlaBreached`
 
-```typescript
-async function notifySlack(message: SlackMessage) {
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.log('SLACK_WEBHOOK_URL not configured');
-    return;
-  }
+## 開発メモ
 
-  try {
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message),
-    });
-  } catch (error) {
-    console.error('Failed to send Slack notification', error);
-    // エラー時も処理は続行
-  }
-}
-```
-
----
-
-## API 仕様
-
-### 7.1 認証 API
-
-#### `POST /api/auth/login`
-
-```
-Request:
-{
-  "username": "operator_001",
-  "password": "secretpassword"
-}
-
-Response: 200 OK
-{
-  "user": {
-    "id": "user-001",
-    "username": "operator_001",
-    "role": "member"
-  }
-}
-
-Cookie: _session=eyJhbGciOi...; HttpOnly; SameSite=Lax; Path=/
-```
-
-#### `GET /api/auth/github`
-
-```
-Redirect:
-https://github.com/login/oauth/authorize?
-  client_id=...&
-  redirect_uri=http://localhost:3000/api/auth/github/callback&
-  state=eyJhbGciOi...
-```
-
-#### `GET /api/auth/github/callback?code=...&state=...`
-
-```
-Processing:
-1. state JWT を検証
-2. code でアクセストークン取得
-3. GitHub API で ユーザー情報取得
-4. メール照合 or 新規作成
-
-Redirect: / (ダッシュボード)
-
-Cookie: _session=...; HttpOnly; SameSite=Lax; Path=/
-```
-
-#### `POST /api/auth/logout`
-
-```
-Response: 200 OK
-Cookie: _session=; Max-Age=0; Path=/
-Redirect: /login
-```
-
-#### `GET /api/auth/me`
-
-```
-Response: 200 OK
-{
-  "id": "user-001",
-  "username": "operator_001",
-  "email": "operator@example.com",
-  "role": "member",
-  "createdAt": 1715000000000
-}
-
-Response: 401 Unauthorized (未認証時)
-```
-
-### 7.2 インシデント API
-
-#### `GET /api/incidents`
-
-```
-Query Parameters:
-?status=new&priority=p1&keyword=login&limit=50&offset=0
-
-Response: 200 OK
-{
-  "incidents": [
-    {
-      "id": "INC-0001",
-      "title": "...",
-      "description": "...",
-      "priority": "p1",
-      "status": "new",
-      "assignee": "admin",
-      "reporter": "operator_001",
-      "respondedAt": null,
-      "resolvedAt": null,
-      "slaResponseDeadline": 1715330700000,
-      "slaResolveDeadline": 1715345100000,
-      "slaResponseBreached": false,
-      "slaResolveBreached": false,
-      "createdAt": 1715330700000,
-      "updatedAt": 1715330700000
-    },
-    ...
-  ],
-  "total": 45,
-  "limit": 50,
-  "offset": 0
-}
-```
-
-#### `POST /api/incidents`
-
-```
-Request:
-{
-  "title": "ログインシステムが応答しない",
-  "description": "午前9時ごろからログインが失敗するようになりました",
-  "priority": "p1",
-  "assignee": "operator_001"
-}
-
-Response: 201 Created
-{
-  "id": "INC-0010",
-  "title": "...",
-  "status": "new",
-  "priority": "p1",
-  ...
-}
-
-Actions:
-- ID 採番
-- SLA 期限計算
-- 監査ログ記録
-- Slack 通知送信
-```
-
-#### `GET /api/incidents/[id]`
-
-```
-Response: 200 OK
-{
-  "incident": { ... },
-  "timeline": [
-    {
-      "id": 1,
-      "actor": "admin",
-      "field": "status",
-      "oldValue": "new",
-      "newValue": "in_progress",
-      "comment": null,
-      "createdAt": 1715330745000
-    },
-    ...
-  ]
-}
-```
-
-#### `PATCH /api/incidents/[id]`
-
-```
-Request:
-{
-  "status": "in_progress",
-  "comment": "対応を開始しました"
-}
-
-Response: 200 OK
-{ 更新後のインシデント情報 }
-
-Actions:
-- ステータス遷移（responded_at / resolved_at 自動設定）
-- 監査ログ記録
-- Slack 通知送信
-```
-
-### 7.3 統計 API
-
-#### `GET /api/stats`
-
-```
-Response: 200 OK
-{
-  "totalIncidents": 45,
-  "openIncidents": 8,
-  "p1Active": 2,
-  "slaResponseBreach": 1,
-  "slaResolveBreach": 3,
-  "avgResolutionTimeMs": 8100000
-}
-```
-
-### 7.4 SLA チェック API
-
-#### `POST /api/sla-check`
-
-```
-Request: (Body 不要)
-
-Response: 200 OK
-{
-  "checked": 8,
-  "breached": 2,
-  "alerts": [
-    {
-      "incidentId": "INC-0001",
-      "type": "resolve",
-      "overdueMs": 300000
-    }
-  ]
-}
-
-実行方法:
-- Vercel Cron Function で定期実行
-- または外部スケジューラー（GitHub Actions / EasyCron 等）で定期呼び出し
-```
-
----
-
-## 参考
-
-- 技術スタック：Next.js 16, React 19, Drizzle ORM, Turso libSQL
-- 認証：jose (JWT), PBKDF2
-- UI：Tailwind CSS 4, shadcn UI
-- デプロイ：Vercel
+- Next.js 16 の Route Handler では動的ルートの `params` が Promise として扱われているため、`await params` する。
+- 詳細ページの `params` も `Promise<{ id: string }>` として受け、Client Component では `use(params)` で展開している。
+- `npm run dev` は `npm run migrate && next dev`。
+- `vercel.json` の build command は `npm run build`。

@@ -3,35 +3,24 @@
 ## 前提
 
 - Vercel アカウント
-- Turso アカウント（[turso.tech](https://turso.tech)）
-- GitHub OAuth App（Vercel 用）
-
----
+- Turso アカウント
+- GitHub OAuth を使う場合は GitHub OAuth App
+- Slack 通知を使う場合は Slack Incoming Webhook URL
 
 ## 1. Turso データベースを作成
 
 ```bash
-# Turso CLI をインストール（未インストールの場合）
-brew install tursodatabase/tap/turso  # macOS
-
-# Turso にログイン
+brew install tursodatabase/tap/turso
 turso auth login
-
-# データベースを作成
 turso db create itsm-db
-
-# 接続 URL を確認
 turso db show itsm-db
-
-# 認証トークンを生成
 turso db tokens create itsm-db
 ```
 
-取得した値を控えておく：
-- `TURSO_DATABASE_URL` — `libsql://itsm-db-<account>.turso.io`
-- `TURSO_AUTH_TOKEN` — 生成されたトークン
+控える値:
 
----
+- `TURSO_DATABASE_URL`: `libsql://...`
+- `TURSO_AUTH_TOKEN`: 生成されたトークン
 
 ## 2. Turso にマイグレーションを適用
 
@@ -41,65 +30,76 @@ TURSO_AUTH_TOKEN=... \
 npm run migrate:turso
 ```
 
----
+## 3. GitHub OAuth App を作成
 
-## 3. GitHub OAuth App を作成（Vercel 用）
-
-[github.com/settings/developers](https://github.com/settings/developers) → **OAuth Apps** → **New OAuth App**
+GitHub の Developer settings から OAuth App を作成します。
 
 | 項目 | 値 |
 |---|---|
-| Application name | ITSM Tracker (Vercel) |
+| Application name | ITSM Incident Tracker |
 | Homepage URL | `https://<your-app>.vercel.app` |
 | Authorization callback URL | `https://<your-app>.vercel.app/api/auth/github/callback` |
 
-登録後、**Client ID** と **Client Secret** を取得。
+作成後、`Client ID` と `Client Secret` を控えます。
 
-> **Note**: GitHub OAuth App はコールバック URL が1つのみのため、Cloudflare 用と Vercel 用で別々の App が必要。
+ローカル開発でも GitHub OAuth を使う場合は、別の OAuth App を作り、callback URL を `http://localhost:3000/api/auth/github/callback` にします。
 
----
+## 4. Vercel にインポート
 
-## 4. Vercel にプロジェクトをインポート
+1. Vercel で `Add New` -> `Project` を選びます。
+2. このリポジトリをインポートします。
+3. Framework Preset は `Next.js` を選びます。
 
-1. [vercel.com](https://vercel.com) にログイン
-2. **Add New → Project** からこのリポジトリをインポート
-3. Framework Preset は **Next.js** を選択
+`vercel.json` では以下を指定しています。
 
-ビルドコマンドは `vercel.json` で `npm run build:vercel` に設定済みのため変更不要。
+```json
+{
+  "buildCommand": "npm run build",
+  "framework": "nextjs",
+  "installCommand": "npm clean-install"
+}
+```
 
----
+## 5. 環境変数
 
-## 5. 環境変数を設定
+Vercel の `Settings` -> `Environment Variables` に設定します。
 
-Vercel プロジェクト → **Settings** → **Environment Variables** に以下を追加：
-
-| 変数名 | 値 | 説明 |
+| 変数名 | 必須 | 説明 |
 |---|---|---|
-| `TURSO_DATABASE_URL` | `libsql://...` | Turso 接続 URL |
-| `TURSO_AUTH_TOKEN` | `...` | Turso 認証トークン |
-| `JWT_SECRET` | 32 バイト以上のランダム文字列 | セッション署名（Cloudflare と同じ値でも可） |
-| `GITHUB_CLIENT_ID` | Vercel 用 OAuth App の Client ID | |
-| `GITHUB_CLIENT_SECRET` | Vercel 用 OAuth App の Client Secret | Secret として登録 |
+| `JWT_SECRET` | 必須 | JWT 署名シークレット |
+| `TURSO_DATABASE_URL` | 必須 | Turso 接続 URL |
+| `TURSO_AUTH_TOKEN` | 必須 | Turso 認証トークン |
+| `GITHUB_CLIENT_ID` | GitHub 利用時 | OAuth App Client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub 利用時 | OAuth App Client Secret |
+| `SLACK_WEBHOOK_URL` | 任意 | Slack Incoming Webhook URL |
 
-JWT_SECRET の生成例：
+`JWT_SECRET` の生成例:
+
 ```bash
 openssl rand -hex 32
 ```
 
----
-
 ## 6. デプロイ
 
-環境変数を保存後、**Deployments** タブから **Redeploy** を実行。
+環境変数を保存後、Vercel の Deployments から Redeploy します。
 
----
+## 7. SLA チェックの定期実行
 
-## データベース構成
+SLA 違反フラグは `POST /api/sla-check` の実行時に更新されます。本番では Vercel Cron または外部スケジューラーから定期的に POST してください。
+
+例:
+
+```bash
+curl -X POST https://<your-app>.vercel.app/api/sla-check
+```
+
+現在の実装ではこのエンドポイント専用の認証トークンはありません。公開運用する場合は、Cron 用シークレットや IP 制限などの追加実装を検討してください。
+
+## 8. DB の切り替え
 
 | 環境 | DB |
 |---|---|
-| ローカル開発 | SQLite (`data/itsm.db`) |
-| Vercel | Turso (`TURSO_DATABASE_URL`) |
-| Cloudflare | D1 (`CLOUDFLARE_DEPLOY=true` のビルド) |
+| ローカル | SQLite。`DB_PATH` または `data/itsm.db` |
+| Vercel | Turso。`TURSO_DATABASE_URL` 設定時に使用 |
 
-優先度: D1 > Turso > SQLite
+Cloudflare D1 用の分岐は現在の実装にはありません。
