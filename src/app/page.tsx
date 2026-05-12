@@ -41,7 +41,7 @@ function fmtMinutes(min: number | null) {
 export default function HomePage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -90,9 +90,14 @@ export default function HomePage() {
   }, [filterStatus, filterPriority, search, showDeleted]);
 
   useEffect(() => {
-    fetchData();
+    const timeout = setTimeout(() => {
+      void fetchData();
+    }, 0);
     const interval = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   async function handleDelete() {

@@ -2,6 +2,13 @@ import type { Incident } from "@/db/schema";
 import { SLA_DEFAULTS } from "./sla";
 import { shortId } from "./id";
 
+type CreatedIncident = Pick<
+  Incident,
+  "id" | "priority" | "title" | "status" | "reporter"
+>;
+type StatusIncident = Pick<Incident, "id" | "status" | "title">;
+type SlaIncident = Pick<Incident, "id" | "title" | "priority" | "assignee">;
+
 const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL ?? "";
 
 const PRIORITY_EMOJI: Record<string, string> = {
@@ -20,7 +27,7 @@ async function send(payload: object) {
   }).catch(() => {});
 }
 
-export async function notifyIncidentCreated(incident: Incident) {
+export async function notifyIncidentCreated(incident: CreatedIncident) {
   const label = SLA_DEFAULTS[incident.priority]?.label ?? incident.priority;
   await send({
     text: `${PRIORITY_EMOJI[incident.priority] ?? ""} *新規インシデント* ${shortId(incident.id)}`,
@@ -44,7 +51,7 @@ export async function notifyIncidentCreated(incident: Incident) {
 }
 
 export async function notifyStatusChanged(
-  incident: Incident,
+  incident: StatusIncident,
   oldStatus: string,
   actor: string
 ) {
@@ -63,7 +70,7 @@ export async function notifyStatusChanged(
 }
 
 export async function notifySlaBreached(
-  incident: Incident,
+  incident: SlaIncident,
   type: "response" | "resolve"
 ) {
   const label = type === "response" ? "応答時間" : "解決時間";

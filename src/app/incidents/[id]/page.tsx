@@ -66,7 +66,7 @@ export default function IncidentDetailPage({
   const router = useRouter();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [log, setLog] = useState<AuditLogEntry[]>([]);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [actor, setActor] = useState("");
   const [comment, setComment] = useState("");
   const [editStatus, setEditStatus] = useState("");
@@ -97,9 +97,14 @@ export default function IncidentDetailPage({
   }
 
   useEffect(() => {
-    fetchIncident();
+    const timeout = setTimeout(() => {
+      void fetchIncident();
+    }, 0);
     const t = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(t);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(t);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -125,8 +130,8 @@ export default function IncidentDetailPage({
       toast.success("更新しました");
       setComment("");
       await fetchIncident();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
       setSaving(false);
     }
