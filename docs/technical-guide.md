@@ -186,7 +186,11 @@ if (process.env.TURSO_DATABASE_URL) {
 | `p3` | 240 分 | 1440 分 |
 | `p4` | 1440 分 | 4320 分 |
 
-`POST /api/sla-check` は `resolved` と `closed` 以外を対象にする。未検知の違反だけを更新し、Slack に通知する。レスポンスは以下。
+`GET /api/sla-check` と `POST /api/sla-check` は `resolved` と `closed` 以外を対象にする。未検知の違反だけを更新し、Slack に通知する。
+
+このルートは middleware の通常ログイン保護からは除外し、Route Handler 側で `CRON_SECRET` を使った Bearer 認証を行う。本番環境では `Authorization: Bearer <CRON_SECRET>` が必要。ローカル開発では `CRON_SECRET` なしでも実行できる。
+
+レスポンスは以下。
 
 ```json
 {

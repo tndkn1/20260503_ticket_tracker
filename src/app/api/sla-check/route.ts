@@ -1,10 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents } from "@/db/schema";
 import { eq, not, inArray } from "drizzle-orm";
 import { notifySlaBreached } from "@/lib/slack";
 
-export async function POST() {
+function isAuthorized(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+
+  if (!secret) {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  return req.headers.get("authorization") === `Bearer ${secret}`;
+}
+
+async function runSlaCheck() {
   const db = getDb();
   const now = Date.now();
 
@@ -37,4 +47,20 @@ export async function POST() {
   }
 
   return NextResponse.json({ checked: active.length, responseBreached, resolveBreached });
+}
+
+async function handleSlaCheck(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return runSlaCheck();
+}
+
+export async function GET(req: NextRequest) {
+  return handleSlaCheck(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleSlaCheck(req);
 }

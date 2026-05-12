@@ -72,6 +72,7 @@ Vercel の `Settings` -> `Environment Variables` に設定します。
 | `GITHUB_CLIENT_ID` | GitHub 利用時 | OAuth App Client ID |
 | `GITHUB_CLIENT_SECRET` | GitHub 利用時 | OAuth App Client Secret |
 | `SLACK_WEBHOOK_URL` | 任意 | Slack Incoming Webhook URL |
+| `CRON_SECRET` | SLA チェック定期実行時 | `/api/sla-check` の Bearer 認証用シークレット |
 
 `JWT_SECRET` の生成例:
 
@@ -85,15 +86,32 @@ openssl rand -hex 32
 
 ## 7. SLA チェックの定期実行
 
-SLA 違反フラグは `POST /api/sla-check` の実行時に更新されます。本番では Vercel Cron または外部スケジューラーから定期的に POST してください。
+SLA 違反フラグは `/api/sla-check` の実行時に更新されます。本番では Vercel Cron または外部スケジューラーから定期実行してください。
 
-例:
+Vercel Cron から呼び出す場合、Vercel は GET リクエストを送ります。`CRON_SECRET` を Vercel の環境変数に設定すると、Vercel は `Authorization: Bearer <CRON_SECRET>` ヘッダーを付けて呼び出します。このアプリの `/api/sla-check` はそのヘッダーを検証します。
 
-```bash
-curl -X POST https://<your-app>.vercel.app/api/sla-check
+`vercel.json` に Cron を追加する例:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/sla-check",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
 ```
 
-現在の実装ではこのエンドポイント専用の認証トークンはありません。公開運用する場合は、Cron 用シークレットや IP 制限などの追加実装を検討してください。
+外部スケジューラーや手動実行の例:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://<your-app>.vercel.app/api/sla-check
+```
+
+本番環境で `CRON_SECRET` が未設定の場合、`/api/sla-check` は `401 Unauthorized` を返します。ローカル開発では `CRON_SECRET` なしでも実行できます。
 
 ## 8. DB の切り替え
 

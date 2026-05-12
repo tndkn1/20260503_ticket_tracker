@@ -113,7 +113,8 @@ UI 上のクイック遷移:
 - 期限超過時は breached 表示とする。
 - 応答済みは `応答済`、解決済みは `SLA達成` と表示する。
 - トップページは 60 秒ごと、詳細ページは 30 秒ごとにローカル時刻を更新してバッジを再計算する。
-- `POST /api/sla-check` は active なインシデントを確認し、未検知の応答違反または解決違反にフラグを立てる。
+- `GET /api/sla-check` と `POST /api/sla-check` は active なインシデントを確認し、未検知の応答違反または解決違反にフラグを立てる。
+- 本番環境の `/api/sla-check` は `Authorization: Bearer <CRON_SECRET>` を必須とする。
 - SLA 違反検知時は Slack アラートを送信する。
 
 ### 4.7 ダッシュボード
@@ -218,7 +219,7 @@ UI 上のクイック遷移:
 | `GET` | `/api/incidents/[id]` | 詳細と監査ログ取得 |
 | `PATCH` | `/api/incidents/[id]` | インシデント更新 |
 | `GET` | `/api/stats` | KPI 取得 |
-| `POST` | `/api/sla-check` | SLA 違反チェック |
+| `GET` / `POST` | `/api/sla-check` | SLA 違反チェック |
 
 ## 7. 環境変数
 
@@ -231,3 +232,4 @@ UI 上のクイック遷移:
 | `GITHUB_CLIENT_ID` | GitHub 利用時 | OAuth App Client ID |
 | `GITHUB_CLIENT_SECRET` | GitHub 利用時 | OAuth App Client Secret |
 | `SLACK_WEBHOOK_URL` | 任意 | Slack Incoming Webhook URL |
+| `CRON_SECRET` | SLA チェック定期実行時 | `/api/sla-check` の Bearer 認証用シークレット |

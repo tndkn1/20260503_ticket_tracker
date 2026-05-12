@@ -46,6 +46,9 @@ GITHUB_CLIENT_SECRET=
 
 # 任意: Slack 通知
 SLACK_WEBHOOK_URL=
+
+# 任意: Vercel Cron / 本番 SLA チェック
+CRON_SECRET=
 ```
 
 初期ユーザーを作成します。
