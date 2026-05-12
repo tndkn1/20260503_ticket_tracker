@@ -72,7 +72,7 @@ export function IncidentTable({
           <TableHead className="w-10">
             <Checkbox
               checked={allChecked}
-              data-indeterminate={someChecked ? "" : undefined}
+              indeterminate={someChecked}
               onCheckedChange={toggleAll}
               disabled={!isAdmin}
               aria-label="全選択"
