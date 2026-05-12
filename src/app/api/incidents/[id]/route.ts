@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { incidents, auditLog } from "@/db/schema";
+import type { Incident } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { notifyStatusChanged } from "@/lib/slack";
+
+type TrackableField = "status" | "priority" | "assignee" | "title" | "description";
+type IncidentPatchBody = Partial<Pick<Incident, TrackableField>> & {
+  actor?: string;
+  comment?: string | null;
+};
 
 export async function GET(
   _req: NextRequest,
@@ -34,7 +41,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const db = getDb();
-  const body = await req.json();
+  const body = (await req.json()) as IncidentPatchBody;
   const { actor, comment, ...fields } = body;
 
   if (!actor) {
@@ -51,7 +58,7 @@ export async function PATCH(
   }
 
   const now = Date.now();
-  const updates: Record<string, unknown> = { updatedAt: now };
+  const updates: Partial<Incident> = { updatedAt: now };
   const logEntries: {
     incidentId: string;
     actor: string;
@@ -62,14 +69,21 @@ export async function PATCH(
     createdAt: number;
   }[] = [];
 
-  const trackable = ["status", "priority", "assignee", "title", "description"];
+  const trackable: TrackableField[] = [
+    "status",
+    "priority",
+    "assignee",
+    "title",
+    "description",
+  ];
 
   for (const key of trackable) {
     if (key in fields) {
-      const oldVal = String((existing as any)[key] ?? "");
-      const newVal = String(fields[key] ?? "");
+      const newValue = fields[key];
+      const oldVal = String(existing[key] ?? "");
+      const newVal = String(newValue ?? "");
       if (oldVal !== newVal) {
-        updates[key] = fields[key];
+        Object.assign(updates, { [key]: newValue });
         logEntries.push({
           incidentId: id,
           actor,
@@ -128,7 +142,7 @@ export async function PATCH(
 
   if (fields.status && fields.status !== existing.status) {
     const updated = { ...existing, ...updates };
-    await notifyStatusChanged(updated as any, existing.status, actor);
+    await notifyStatusChanged(updated, existing.status, actor);
   }
 
   const [updated] = await db

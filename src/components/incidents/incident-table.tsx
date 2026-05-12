@@ -37,7 +37,11 @@ export function IncidentTable({
   function toggleOne(id: string) {
     if (!isAdmin || !onSelectionChange) return;
     const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
     onSelectionChange(next);
   }
 
@@ -68,7 +72,7 @@ export function IncidentTable({
           <TableHead className="w-10">
             <Checkbox
               checked={allChecked}
-              ref={(el) => { if (el) (el as any).indeterminate = someChecked; }}
+              indeterminate={someChecked}
               onCheckedChange={toggleAll}
               disabled={!isAdmin}
               aria-label="全選択"

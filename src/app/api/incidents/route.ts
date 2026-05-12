@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     createdAt: now,
   });
 
-  await notifyIncidentCreated(newIncident as any);
+  await notifyIncidentCreated(newIncident);
 
   return NextResponse.json(newIncident, { status: 201 });
 }
