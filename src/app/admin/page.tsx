@@ -70,7 +70,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(`ユーザー「${data.username}」を作成し、招待メールを送信しました`);
+      toast.success(`ユーザー「${data.username}」を作成しました`);
       setForm({ username: "", email: "", password: "", role: "member" });
       fetchUsers();
     } catch (err: unknown) {
@@ -135,7 +135,7 @@ export default function AdminPage() {
               </div>
               <div className="md:col-span-2">
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? "作成中..." : "ユーザーを作成して招待メールを送信"}
+                  {submitting ? "作成中..." : "ユーザーを作成"}
                 </Button>
               </div>
             </form>
