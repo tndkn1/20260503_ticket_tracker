@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatCard } from "@/components/stat-card";
 import { IncidentTable } from "@/components/incidents/incident-table";
 import { CreateIncidentDialog } from "@/components/incidents/create-dialog";
-import { Plus, RefreshCw, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, AlertTriangle, Trash2, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { UserMenu } from "@/components/user-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ function fmtMinutes(min: number | null) {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -130,6 +132,12 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <UserMenu />
+            {role === "admin" && (
+              <Button variant="outline" size="sm" onClick={() => router.push("/admin")}>
+                <Settings className="w-4 h-4 mr-1" />
+                管理画面
+              </Button>
+            )}
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               インシデント起票
