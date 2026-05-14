@@ -47,7 +47,10 @@ export async function POST(req: NextRequest) {
 
   await db.insert(users).values({ id, username, email, passwordHash, role });
 
-  await sendWelcomeEmail({ to: email, username, password });
+  // メール送信失敗はユーザー作成の成否に影響させない
+  sendWelcomeEmail({ to: email, username, password }).catch((err) => {
+    console.error("[email] 招待メール送信失敗:", err);
+  });
 
   return NextResponse.json({ id, username, email, role }, { status: 201 });
 }

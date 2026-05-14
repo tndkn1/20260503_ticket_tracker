@@ -45,7 +45,9 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/users");
       if (res.status === 403) { router.push("/"); return; }
-      setUsers(await res.json());
+      if (!res.ok) { toast.error("ユーザー一覧の取得に失敗しました"); return; }
+      const data = await res.json();
+      setUsers(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
