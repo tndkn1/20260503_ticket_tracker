@@ -3,7 +3,6 @@ import { getSession, hashPassword } from "@/lib/auth";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { sendWelcomeEmail } from "@/lib/email";
 
 export async function GET() {
   const session = await getSession();
@@ -46,11 +45,6 @@ export async function POST(req: NextRequest) {
   const id = `USER-${Date.now()}`;
 
   await db.insert(users).values({ id, username, email, passwordHash, role });
-
-  // メール送信失敗はユーザー作成の成否に影響させない
-  sendWelcomeEmail({ to: email, username, password }).catch((err) => {
-    console.error("[email] 招待メール送信失敗:", err);
-  });
 
   return NextResponse.json({ id, username, email, role }, { status: 201 });
 }
