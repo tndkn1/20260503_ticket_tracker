@@ -86,3 +86,7 @@ npm run dev
 - [画面操作ガイド](docs/visual-guide.md)
 - [解説動画スクリプト](docs/video-script.md)
 - [Vercel デプロイ手順](docs/deploy-vercel.md)
+
+## ライセンス
+
+[MIT](LICENSE)
