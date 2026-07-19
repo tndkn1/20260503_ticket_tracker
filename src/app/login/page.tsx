@@ -55,7 +55,7 @@ function LoginForm() {
       <div className="w-full max-w-sm space-y-6">
         <div className="flex items-center justify-center gap-2">
           <AlertTriangle className="w-6 h-6 text-orange-500" />
-          <h1 className="text-xl font-semibold">ITSM Incident Tracker</h1>
+          <h1 className="text-xl font-semibold">ITSM_Incident_Tracker</h1>
         </div>
 
         <Card>
