@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ITSM Incident Tracker",
+  title: "ITSM_Incident_Tracker",
   description: "ITSMインシデント管理ツール",
 };
 

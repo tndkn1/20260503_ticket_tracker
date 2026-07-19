@@ -128,7 +128,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-orange-500" />
-            <span className="font-semibold text-lg">ITSM Incident Tracker</span>
+            <span className="font-semibold text-lg">ITSM_Incident_Tracker</span>
           </div>
           <div className="flex items-center gap-3">
             <UserMenu />

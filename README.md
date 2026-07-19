@@ -1,4 +1,4 @@
-# ITSM Incident Tracker
+# ITSM_Incident_Tracker
 
 Next.js 16 / React 19 で実装された ITSM 向けインシデント管理アプリです。インシデントの起票、ステータス追跡、SLA 可視化、監査ログ、Slack 通知、パスワード認証と GitHub OAuth に対応しています。
 
