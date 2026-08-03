@@ -4,6 +4,7 @@ import { incidents, auditLog } from "@/db/schema";
 import type { Incident } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { notifyStatusChanged } from "@/lib/slack";
+import { getSession } from "@/lib/auth";
 
 type TrackableField = "status" | "priority" | "assignee" | "title" | "description";
 type IncidentPatchBody = Partial<Pick<Incident, TrackableField>> & {
@@ -41,12 +42,13 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const db = getDb();
-  const body = (await req.json()) as IncidentPatchBody;
-  const { actor, comment, ...fields } = body;
-
-  if (!actor) {
-    return NextResponse.json({ error: "actor is required" }, { status: 400 });
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const actor = session.username;
+  const body = (await req.json()) as IncidentPatchBody;
+  const { comment, ...fields } = body;
 
   const [existing] = await db
     .select()

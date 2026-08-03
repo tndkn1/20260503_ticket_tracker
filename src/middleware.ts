@@ -34,11 +34,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const res = NextResponse.next();
-  res.headers.set("x-user-id", session.userId);
-  res.headers.set("x-username", session.username);
-  res.headers.set("x-user-role", session.role);
-  return res;
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-user-id", session.userId);
+  requestHeaders.set("x-username", session.username);
+  requestHeaders.set("x-user-role", session.role);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

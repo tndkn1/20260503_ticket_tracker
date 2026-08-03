@@ -128,7 +128,17 @@ export async function GET(req: NextRequest) {
       role: user.role as "admin" | "member",
     });
 
-    const res = NextResponse.redirect(new URL(from, req.url));
+    // Reject absolute URLs pointing to external origins to prevent open redirect
+    let safePath = "/";
+    try {
+      const redirectUrl = new URL(from, req.url);
+      if (redirectUrl.origin === new URL(req.url).origin) {
+        safePath = redirectUrl.pathname + redirectUrl.search;
+      }
+    } catch {
+      // invalid URL — fall back to root
+    }
+    const res = NextResponse.redirect(new URL(safePath, req.url));
     res.cookies.set(sessionCookieOptions(token));
     return res;
   } catch (err) {
