@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   const priority = searchParams.get("priority");
   const q = searchParams.get("q");
   const includeDeleted = searchParams.get("includeDeleted") === "true";
-  const role = req.headers.get("x-user-role");
+  const session = await getSession();
+  const role = session?.role;
 
   const rows = await db
     .select()
@@ -46,7 +47,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const db = getDb();
-  const reporter = req.headers.get("x-username");
+  const session = await getSession();
+  const reporter = session?.username;
   if (!reporter) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
