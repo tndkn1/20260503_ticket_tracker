@@ -80,6 +80,27 @@ async function migrate() {
   } catch {
     // column already exists — ignore
   }
+
+  // Migration: add ServiceNow fields
+  const snCols = [
+    "category TEXT",
+    "subcategory TEXT",
+    "impact TEXT",
+    "urgency TEXT",
+    "assignment_group TEXT",
+    "configuration_item TEXT",
+    "contact_type TEXT",
+    "resolution_notes TEXT",
+    "close_code TEXT",
+    "on_hold_reason TEXT",
+  ];
+  for (const colDef of snCols) {
+    try {
+      await client.execute(`ALTER TABLE incidents ADD COLUMN ${colDef};`);
+    } catch {
+      // column already exists — ignore
+    }
+  }
   console.log("Turso migration complete:", url);
   client.close();
 }

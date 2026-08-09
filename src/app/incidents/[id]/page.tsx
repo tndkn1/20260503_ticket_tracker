@@ -32,29 +32,73 @@ import type { Incident, AuditLogEntry } from "@/db/schema";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
+const EMPTY = "_none";
+
 const STATUS_TRANSITIONS: Record<string, string[]> = {
-  new:         ["assigned", "in_progress", "closed"],
-  assigned:    ["in_progress", "resolved", "closed"],
-  in_progress: ["resolved", "closed"],
+  new:         ["assigned", "in_progress", "on_hold", "closed"],
+  assigned:    ["in_progress", "on_hold", "resolved", "closed"],
+  in_progress: ["on_hold", "resolved", "closed"],
+  on_hold:     ["assigned", "in_progress", "resolved", "closed"],
   resolved:    ["closed", "in_progress"],
   closed:      [],
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  status:      "ステータス",
-  priority:    "優先度",
-  assignee:    "担当者",
-  title:       "タイトル",
-  description: "説明",
-  comment:     "コメント",
+  status:            "ステータス",
+  priority:          "優先度",
+  assignee:          "担当者",
+  title:             "タイトル",
+  description:       "説明",
+  comment:           "コメント",
+  category:          "カテゴリ",
+  subcategory:       "サブカテゴリ",
+  impact:            "影響度",
+  urgency:           "緊急度",
+  assignmentGroup:   "担当グループ",
+  configurationItem: "構成アイテム (CI)",
+  contactType:       "連絡手段",
+  resolutionNotes:   "解決メモ",
+  closeCode:         "クローズコード",
+  onHoldReason:      "保留理由",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   new:         "New",
   assigned:    "Assigned",
   in_progress: "In Progress",
+  on_hold:     "On Hold",
   resolved:    "Resolved",
   closed:      "Closed",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  software: "ソフトウェア",
+  hardware: "ハードウェア",
+  network:  "ネットワーク",
+  security: "セキュリティ",
+  other:    "その他",
+};
+
+const IMPACT_LABELS: Record<string, string> = {
+  high:   "High",
+  medium: "Medium",
+  low:    "Low",
+};
+
+const CONTACT_TYPE_LABELS: Record<string, string> = {
+  phone:        "電話",
+  email:        "メール",
+  self_service: "セルフサービス",
+  chat:         "チャット",
+  other:        "その他",
+};
+
+const CLOSE_CODE_LABELS: Record<string, string> = {
+  solved:         "解決済み",
+  duplicate:      "重複",
+  no_fault_found: "問題なし",
+  cancelled:      "キャンセル",
+  other:          "その他",
 };
 
 export default function IncidentDetailPage({
@@ -67,20 +111,31 @@ export default function IncidentDetailPage({
   const [incident, setIncident] = useState<Incident | null>(null);
   const [log, setLog] = useState<AuditLogEntry[]>([]);
   const [now, setNow] = useState(() => Date.now());
-  const [actor, setActor] = useState("");
+  const [loggedInUser, setLoggedInUser] = useState("");
   const [comment, setComment] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [editPriority, setEditPriority] = useState("");
   const [editAssignee, setEditAssignee] = useState("");
+  // ServiceNow fields
+  const [editCategory, setEditCategory] = useState(EMPTY);
+  const [editSubcategory, setEditSubcategory] = useState("");
+  const [editImpact, setEditImpact] = useState(EMPTY);
+  const [editUrgency, setEditUrgency] = useState(EMPTY);
+  const [editAssignmentGroup, setEditAssignmentGroup] = useState("");
+  const [editConfigurationItem, setEditConfigurationItem] = useState("");
+  const [editContactType, setEditContactType] = useState(EMPTY);
+  const [editOnHoldReason, setEditOnHoldReason] = useState("");
+  const [editResolutionNotes, setEditResolutionNotes] = useState("");
+  const [editCloseCode, setEditCloseCode] = useState(EMPTY);
+
   const [saving, setSaving] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
 
-  // ログインユーザー名をデフォルトの更新者として設定
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.user?.username) setActor((prev) => prev || data.user.username); })
+      .then((data) => { if (data?.user?.username) setLoggedInUser(data.user.username); })
       .catch(() => {});
   }, []);
 
@@ -88,37 +143,51 @@ export default function IncidentDetailPage({
     const res = await fetch(`/api/incidents/${id}`);
     if (!res.ok) { router.push("/"); return; }
     const data = await res.json();
-    setIncident(data.incident);
+    const inc: Incident = data.incident;
+    setIncident(inc);
     setLog(data.log);
     setNow(Date.now());
-    setEditStatus(data.incident.status);
-    setEditPriority(data.incident.priority);
-    setEditAssignee(data.incident.assignee ?? "");
+    setEditStatus(inc.status);
+    setEditPriority(inc.priority);
+    setEditAssignee(inc.assignee ?? "");
+    setEditCategory(inc.category ?? EMPTY);
+    setEditSubcategory(inc.subcategory ?? "");
+    setEditImpact(inc.impact ?? EMPTY);
+    setEditUrgency(inc.urgency ?? EMPTY);
+    setEditAssignmentGroup(inc.assignmentGroup ?? "");
+    setEditConfigurationItem(inc.configurationItem ?? "");
+    setEditContactType(inc.contactType ?? EMPTY);
+    setEditOnHoldReason(inc.onHoldReason ?? "");
+    setEditResolutionNotes(inc.resolutionNotes ?? "");
+    setEditCloseCode(inc.closeCode ?? EMPTY);
   }
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      void fetchIncident();
-    }, 0);
+    const timeout = setTimeout(() => { void fetchIncident(); }, 0);
     const t = setInterval(() => setNow(Date.now()), 30000);
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(t);
-    };
+    return () => { clearTimeout(timeout); clearInterval(t); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function handleUpdate(extra?: Record<string, string>) {
-    if (!actor) { toast.error("更新者名を入力してください"); return; }
+  async function handleUpdate(extra?: Record<string, string | null>) {
     if (!incident) return;
     setSaving(true);
     try {
       const body: Record<string, string | null> = {
-        actor,
         comment: comment || null,
         status: editStatus,
         priority: editPriority,
         assignee: editAssignee || null,
+        category: editCategory !== EMPTY ? editCategory : null,
+        subcategory: editSubcategory || null,
+        impact: editImpact !== EMPTY ? editImpact : null,
+        urgency: editUrgency !== EMPTY ? editUrgency : null,
+        assignmentGroup: editAssignmentGroup || null,
+        configurationItem: editConfigurationItem || null,
+        contactType: editContactType !== EMPTY ? editContactType : null,
+        onHoldReason: editOnHoldReason || null,
+        resolutionNotes: editResolutionNotes || null,
+        closeCode: editCloseCode !== EMPTY ? editCloseCode : null,
         ...extra,
       };
       const res = await fetch(`/api/incidents/${id}`, {
@@ -138,7 +207,6 @@ export default function IncidentDetailPage({
   }
 
   async function handleTitleSave() {
-    if (!actor) { toast.error("更新者名を入力してください"); return; }
     await handleUpdate({ title: titleDraft });
     setEditingTitle(false);
   }
@@ -153,6 +221,15 @@ export default function IncidentDetailPage({
 
   const isActive = incident.status !== "resolved" && incident.status !== "closed";
   const nextStatuses = STATUS_TRANSITIONS[incident.status] ?? [];
+
+  function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+    return (
+      <div>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm">{value || "—"}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,11 +267,7 @@ export default function IncidentDetailPage({
                 <Button size="icon" variant="ghost" onClick={handleTitleSave}>
                   <Check className="w-4 h-4 text-green-600" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setEditingTitle(false)}
-                >
+                <Button size="icon" variant="ghost" onClick={() => setEditingTitle(false)}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
@@ -207,10 +280,7 @@ export default function IncidentDetailPage({
                   size="icon"
                   variant="ghost"
                   className="opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
-                  onClick={() => {
-                    setTitleDraft(incident.title);
-                    setEditingTitle(true);
-                  }}
+                  onClick={() => { setTitleDraft(incident.title); setEditingTitle(true); }}
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </Button>
@@ -237,6 +307,30 @@ export default function IncidentDetailPage({
               <p className="text-sm whitespace-pre-wrap text-muted-foreground">
                 {incident.description}
               </p>
+            </CardContent>
+          </Card>
+
+          {/* ServiceNow 詳細情報 */}
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm">詳細情報</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 grid grid-cols-2 gap-x-6 gap-y-3">
+              <DetailRow label="カテゴリ" value={CATEGORY_LABELS[incident.category ?? ""] ?? incident.category} />
+              <DetailRow label="サブカテゴリ" value={incident.subcategory} />
+              <DetailRow label="影響度" value={IMPACT_LABELS[incident.impact ?? ""] ?? incident.impact} />
+              <DetailRow label="緊急度" value={IMPACT_LABELS[incident.urgency ?? ""] ?? incident.urgency} />
+              <DetailRow label="担当グループ" value={incident.assignmentGroup} />
+              <DetailRow label="構成アイテム (CI)" value={incident.configurationItem} />
+              <DetailRow label="連絡手段" value={CONTACT_TYPE_LABELS[incident.contactType ?? ""] ?? incident.contactType} />
+              <DetailRow label="保留理由" value={incident.onHoldReason} />
+              <DetailRow label="クローズコード" value={CLOSE_CODE_LABELS[incident.closeCode ?? ""] ?? incident.closeCode} />
+              {incident.resolutionNotes && (
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">解決メモ</p>
+                  <p className="text-sm whitespace-pre-wrap">{incident.resolutionNotes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -337,23 +431,18 @@ export default function IncidentDetailPage({
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-3">
               <div className="space-y-1">
-                <Label className="text-xs">更新者 *</Label>
-                <Input
-                  value={actor}
-                  onChange={(e) => setActor(e.target.value)}
-                  placeholder="あなたの名前"
-                />
+                <Label className="text-xs">更新者</Label>
+                <p className="text-sm font-medium">{loggedInUser || "..."}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">ステータス</Label>
                 <Select value={editStatus} onValueChange={(v) => setEditStatus(v ?? editStatus)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="new">New</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="on_hold">On Hold</SelectItem>
                     <SelectItem value="resolved">Resolved</SelectItem>
                     <SelectItem value="closed">Closed</SelectItem>
                   </SelectContent>
@@ -362,9 +451,7 @@ export default function IncidentDetailPage({
               <div className="space-y-1">
                 <Label className="text-xs">優先度</Label>
                 <Select value={editPriority} onValueChange={(v) => setEditPriority(v ?? editPriority)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="p1">P1 – Critical</SelectItem>
                     <SelectItem value="p2">P2 – High</SelectItem>
@@ -375,26 +462,107 @@ export default function IncidentDetailPage({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">担当者</Label>
-                <Input
-                  value={editAssignee}
-                  onChange={(e) => setEditAssignee(e.target.value)}
-                  placeholder="未割り当て"
-                />
+                <Input value={editAssignee} onChange={(e) => setEditAssignee(e.target.value)} placeholder="未割り当て" />
+              </div>
+
+              <Separator />
+              <p className="text-xs text-muted-foreground font-medium">追加情報（任意）</p>
+
+              <div className="space-y-1">
+                <Label className="text-xs">カテゴリ</Label>
+                <Select value={editCategory} onValueChange={(v) => setEditCategory(v ?? EMPTY)}>
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EMPTY}>—（なし）</SelectItem>
+                    <SelectItem value="software">ソフトウェア</SelectItem>
+                    <SelectItem value="hardware">ハードウェア</SelectItem>
+                    <SelectItem value="network">ネットワーク</SelectItem>
+                    <SelectItem value="security">セキュリティ</SelectItem>
+                    <SelectItem value="other">その他</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">コメント</Label>
-                <Textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={3}
-                  placeholder="変更理由・作業メモなど"
-                />
+                <Label className="text-xs">サブカテゴリ</Label>
+                <Input value={editSubcategory} onChange={(e) => setEditSubcategory(e.target.value)} placeholder="例: Application" />
               </div>
-              <Button
-                className="w-full"
-                onClick={() => handleUpdate()}
-                disabled={saving || !actor}
-              >
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">影響度</Label>
+                  <Select value={editImpact} onValueChange={(v) => setEditImpact(v ?? EMPTY)}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={EMPTY}>—</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">緊急度</Label>
+                  <Select value={editUrgency} onValueChange={(v) => setEditUrgency(v ?? EMPTY)}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={EMPTY}>—</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">担当グループ</Label>
+                <Input value={editAssignmentGroup} onChange={(e) => setEditAssignmentGroup(e.target.value)} placeholder="例: インフラチーム" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">構成アイテム (CI)</Label>
+                <Input value={editConfigurationItem} onChange={(e) => setEditConfigurationItem(e.target.value)} placeholder="例: 顧客管理システム" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">連絡手段</Label>
+                <Select value={editContactType} onValueChange={(v) => setEditContactType(v ?? EMPTY)}>
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EMPTY}>—（なし）</SelectItem>
+                    <SelectItem value="phone">電話</SelectItem>
+                    <SelectItem value="email">メール</SelectItem>
+                    <SelectItem value="self_service">セルフサービス</SelectItem>
+                    <SelectItem value="chat">チャット</SelectItem>
+                    <SelectItem value="other">その他</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">保留理由</Label>
+                <Input value={editOnHoldReason} onChange={(e) => setEditOnHoldReason(e.target.value)} placeholder="保留の理由を入力" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">解決メモ</Label>
+                <Textarea value={editResolutionNotes} onChange={(e) => setEditResolutionNotes(e.target.value)} rows={2} placeholder="解決時の対応内容" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">クローズコード</Label>
+                <Select value={editCloseCode} onValueChange={(v) => setEditCloseCode(v ?? EMPTY)}>
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EMPTY}>—（なし）</SelectItem>
+                    <SelectItem value="solved">解決済み</SelectItem>
+                    <SelectItem value="duplicate">重複</SelectItem>
+                    <SelectItem value="no_fault_found">問題なし</SelectItem>
+                    <SelectItem value="cancelled">キャンセル</SelectItem>
+                    <SelectItem value="other">その他</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+              <div className="space-y-1">
+                <Label className="text-xs">コメント</Label>
+                <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} placeholder="変更理由・作業メモなど" />
+              </div>
+              <Button className="w-full" onClick={() => handleUpdate()} disabled={saving}>
                 {saving ? "保存中..." : "更新する"}
               </Button>
             </CardContent>
@@ -412,7 +580,7 @@ export default function IncidentDetailPage({
                     key={s}
                     variant="outline"
                     size="sm"
-                    disabled={saving || !actor}
+                    disabled={saving}
                     onClick={() => {
                       setEditStatus(s);
                       handleUpdate({ status: s });
@@ -425,11 +593,7 @@ export default function IncidentDetailPage({
             </Card>
           )}
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => router.push("/")}
-          >
+          <Button variant="outline" className="w-full" onClick={() => router.push("/")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             トップページへ戻る
           </Button>

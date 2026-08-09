@@ -175,8 +175,8 @@ export default function HomePage() {
         )}
 
         {stats && (
-          <div className="grid grid-cols-5 gap-2">
-            {(["new", "assigned", "in_progress", "resolved", "closed"] as const).map(
+          <div className="grid grid-cols-6 gap-2">
+            {(["new", "assigned", "in_progress", "on_hold", "resolved", "closed"] as const).map(
               (s) => (
                 <button
                   key={s}

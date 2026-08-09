@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { title, description, priority = "p3", assignee } = body;
+  const {
+    title, description, priority = "p3", assignee,
+    category, subcategory, impact, urgency,
+    assignmentGroup, configurationItem, contactType,
+  } = body;
 
   if (!title || !description) {
     return NextResponse.json(
@@ -83,6 +87,13 @@ export async function POST(req: NextRequest) {
     assignee: assignee ?? null,
     reporter,
     status: "new" as const,
+    category: category ?? null,
+    subcategory: subcategory ?? null,
+    impact: impact ?? null,
+    urgency: urgency ?? null,
+    assignmentGroup: assignmentGroup ?? null,
+    configurationItem: configurationItem ?? null,
+    contactType: contactType ?? null,
     slaResponseDeadline,
     slaResolveDeadline,
     slaResponseBreached: false,

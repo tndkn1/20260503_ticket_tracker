@@ -75,6 +75,26 @@ function migrate() {
     db.exec(`ALTER TABLE incidents ADD COLUMN deleted_at INTEGER;`);
   }
 
+  // Migration: add ServiceNow fields
+  const incColsV2 = db.pragma("table_info(incidents)") as { name: string }[];
+  const snCols: [string, string][] = [
+    ["category", "TEXT"],
+    ["subcategory", "TEXT"],
+    ["impact", "TEXT"],
+    ["urgency", "TEXT"],
+    ["assignment_group", "TEXT"],
+    ["configuration_item", "TEXT"],
+    ["contact_type", "TEXT"],
+    ["resolution_notes", "TEXT"],
+    ["close_code", "TEXT"],
+    ["on_hold_reason", "TEXT"],
+  ];
+  for (const [col, type] of snCols) {
+    if (!incColsV2.some((c) => c.name === col)) {
+      db.exec(`ALTER TABLE incidents ADD COLUMN ${col} ${type};`);
+    }
+  }
+
   // Migration: make password_hash nullable and add github_id if not present
   const cols = db.pragma("table_info(users)") as { name: string }[];
   const hasGithubId = cols.some((c) => c.name === "github_id");

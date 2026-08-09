@@ -6,7 +6,7 @@ export const incidents = sqliteTable("incidents", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   status: text("status", {
-    enum: ["new", "assigned", "in_progress", "resolved", "closed"],
+    enum: ["new", "assigned", "in_progress", "on_hold", "resolved", "closed"],
   })
     .notNull()
     .default("new"),
@@ -15,6 +15,17 @@ export const incidents = sqliteTable("incidents", {
     .default("p3"),
   assignee: text("assignee"),
   reporter: text("reporter").notNull(),
+  // ServiceNow 互換フィールド（すべて任意）
+  category: text("category"),
+  subcategory: text("subcategory"),
+  impact: text("impact"),
+  urgency: text("urgency"),
+  assignmentGroup: text("assignment_group"),
+  configurationItem: text("configuration_item"),
+  contactType: text("contact_type"),
+  resolutionNotes: text("resolution_notes"),
+  closeCode: text("close_code"),
+  onHoldReason: text("on_hold_reason"),
   // SLA timestamps
   respondedAt: integer("responded_at"),   // unix ms — first non-new status
   resolvedAt: integer("resolved_at"),     // unix ms — resolved/closed
