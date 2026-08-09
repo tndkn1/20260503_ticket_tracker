@@ -9,7 +9,7 @@ export async function GET() {
 
   const total = all.length;
   const byStatus = {
-    new: 0, assigned: 0, in_progress: 0, resolved: 0, closed: 0,
+    new: 0, assigned: 0, in_progress: 0, on_hold: 0, resolved: 0, closed: 0,
   } as Record<string, number>;
   const byPriority = { p1: 0, p2: 0, p3: 0, p4: 0 } as Record<string, number>;
 
@@ -38,6 +38,6 @@ export async function GET() {
     slaResponseBreached,
     slaResolveBreached,
     avgResolveMinutes: avgResolveMs ? Math.round(avgResolveMs / 60000) : null,
-    openCount: byStatus.new + byStatus.assigned + byStatus.in_progress,
+    openCount: byStatus.new + byStatus.assigned + byStatus.in_progress + byStatus.on_hold,
   });
 }
