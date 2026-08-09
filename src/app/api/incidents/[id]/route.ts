@@ -6,7 +6,11 @@ import { eq, asc } from "drizzle-orm";
 import { notifyStatusChanged } from "@/lib/slack";
 import { getSession } from "@/lib/auth";
 
-type TrackableField = "status" | "priority" | "assignee" | "title" | "description";
+type TrackableField =
+  | "status" | "priority" | "assignee" | "title" | "description"
+  | "category" | "subcategory" | "impact" | "urgency"
+  | "assignmentGroup" | "configurationItem" | "contactType"
+  | "resolutionNotes" | "closeCode" | "onHoldReason";
 type IncidentPatchBody = Partial<Pick<Incident, TrackableField>> & {
   actor?: string;
   comment?: string | null;
@@ -72,11 +76,10 @@ export async function PATCH(
   }[] = [];
 
   const trackable: TrackableField[] = [
-    "status",
-    "priority",
-    "assignee",
-    "title",
-    "description",
+    "status", "priority", "assignee", "title", "description",
+    "category", "subcategory", "impact", "urgency",
+    "assignmentGroup", "configurationItem", "contactType",
+    "resolutionNotes", "closeCode", "onHoldReason",
   ];
 
   for (const key of trackable) {
