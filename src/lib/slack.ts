@@ -18,6 +18,10 @@ const PRIORITY_EMOJI: Record<string, string> = {
   p4: ":white_circle:",
 };
 
+function escapeMrkdwn(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 async function send(payload: object) {
   if (!WEBHOOK_URL) return;
   await fetch(WEBHOOK_URL, {
@@ -82,19 +86,20 @@ export async function notifyLoginAttempt({
 }) {
   const emoji = success ? ":white_check_mark:" : ":x:";
   const label = success ? "ログイン成功" : "ログイン失敗";
+  const safeUser = escapeMrkdwn(username);
   const fields: { type: string; text: string }[] = [
-    { type: "mrkdwn", text: `*ユーザー:*\n${username}` },
+    { type: "mrkdwn", text: `*ユーザー:*\n${safeUser}` },
     { type: "mrkdwn", text: `*結果:*\n${label}` },
   ];
-  if (ip) fields.push({ type: "mrkdwn", text: `*IP:*\n${ip}` });
-  if (!success && reason) fields.push({ type: "mrkdwn", text: `*理由:*\n${reason}` });
+  if (ip) fields.push({ type: "mrkdwn", text: `*IP:*\n${escapeMrkdwn(ip)}` });
+  if (!success && reason) fields.push({ type: "mrkdwn", text: `*理由:*\n${escapeMrkdwn(reason)}` });
 
   await send({
-    text: `${emoji} ${label}: ${username}`,
+    text: `${emoji} ${label}: ${safeUser}`,
     blocks: [
       {
         type: "section",
-        text: { type: "mrkdwn", text: `${emoji} *${label}* — \`${username}\`` },
+        text: { type: "mrkdwn", text: `${emoji} *${label}* — \`${safeUser}\`` },
       },
       { type: "section", fields },
     ],
