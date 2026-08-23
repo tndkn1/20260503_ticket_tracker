@@ -69,6 +69,38 @@ export async function notifyStatusChanged(
   });
 }
 
+export async function notifyLoginAttempt({
+  username,
+  success,
+  ip,
+  reason,
+}: {
+  username: string;
+  success: boolean;
+  ip?: string;
+  reason?: string;
+}) {
+  const emoji = success ? ":white_check_mark:" : ":x:";
+  const label = success ? "ログイン成功" : "ログイン失敗";
+  const fields: { type: string; text: string }[] = [
+    { type: "mrkdwn", text: `*ユーザー:*\n${username}` },
+    { type: "mrkdwn", text: `*結果:*\n${label}` },
+  ];
+  if (ip) fields.push({ type: "mrkdwn", text: `*IP:*\n${ip}` });
+  if (!success && reason) fields.push({ type: "mrkdwn", text: `*理由:*\n${reason}` });
+
+  await send({
+    text: `${emoji} ${label}: ${username}`,
+    blocks: [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `${emoji} *${label}* — \`${username}\`` },
+      },
+      { type: "section", fields },
+    ],
+  });
+}
+
 export async function notifySlaBreached(
   incident: SlaIncident,
   type: "response" | "resolve"
