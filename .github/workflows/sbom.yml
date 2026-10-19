@@ -1,0 +1,39 @@
+name: SBOM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+  schedule:
+    - cron: '0 2 * * 1' # 毎週月曜 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch SBOM from GitHub Dependency Graph
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/dependency-graph/sbom \
+            --jq '.sbom' > docs/sbom.spdx.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/sbom.spdx.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: regenerate SBOM [skip ci]"
+            git push
+          else
+            echo "SBOM unchanged, skipping commit"
+          fi
