@@ -15,6 +15,11 @@ function isPublicPath(pathname: string) {
 }
 
 export async function middleware(req: NextRequest) {
+  // CVE-2025-29927: reject internal subrequest header injected from outside
+  if (req.headers.get("x-middleware-subrequest")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { pathname } = req.nextUrl;
 
   if (
