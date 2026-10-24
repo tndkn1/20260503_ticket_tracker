@@ -19,6 +19,58 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Vulnerability scan (npm audit)
+        id: audit
+        run: |
+          python3 - <<'EOF'
+          import json, subprocess, os, sys
+
+          result = subprocess.run(
+              ["npm", "audit", "--json"],
+              capture_output=True, text=True
+          )
+          try:
+              data = json.loads(result.stdout)
+          except json.JSONDecodeError:
+              print("npm audit output could not be parsed", file=sys.stderr)
+              data = {}
+
+          vulns = data.get("vulnerabilities", {})
+          counts = {"critical": 0, "high": 0, "moderate": 0, "low": 0}
+          for v in vulns.values():
+              sev = v.get("severity", "low")
+              if sev in counts:
+                  counts[sev] += 1
+
+          total = sum(counts.values())
+          summary = (
+              f"Critical: {counts['critical']}, High: {counts['high']}, "
+              f"Moderate: {counts['moderate']}, Low: {counts['low']}"
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"total={total}\n")
+              f.write(f"critical={counts['critical']}\n")
+              f.write(f"high={counts['high']}\n")
+              f.write(f"summary={summary}\n")
+
+          print(f"Vulnerabilities found: {total}")
+          print(summary)
+
+          # Critical または High が存在する場合は失敗
+          if counts["critical"] > 0 or counts["high"] > 0:
+              print("::error::Critical/High 脆弱性が検出されました。依存パッケージを更新してください。")
+              sys.exit(1)
+          EOF
+
       - name: Fetch SBOM from GitHub Dependency Graph
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,11 +120,17 @@ jobs:
           fi
 
       - name: Notify Slack
+        if: always()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           SBOM_CHANGED: ${{ steps.commit.outputs.changed }}
           SBOM_TOTAL: ${{ steps.analyze.outputs.total }}
           SBOM_LICENSES: ${{ steps.analyze.outputs.license_summary }}
+          AUDIT_TOTAL: ${{ steps.audit.outputs.total }}
+          AUDIT_CRITICAL: ${{ steps.audit.outputs.critical }}
+          AUDIT_HIGH: ${{ steps.audit.outputs.high }}
+          AUDIT_SUMMARY: ${{ steps.audit.outputs.summary }}
+          JOB_STATUS: ${{ job.status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 - <<'EOF'
@@ -84,30 +142,44 @@ jobs:
               print("SLACK_WEBHOOK_URL not set, skipping")
               sys.exit(0)
 
-          changed  = os.environ.get("SBOM_CHANGED") == "true"
-          total    = os.environ.get("SBOM_TOTAL", "N/A")
-          licenses = os.environ.get("SBOM_LICENSES", "")
-          run_url  = os.environ.get("RUN_URL", "")
+          changed       = os.environ.get("SBOM_CHANGED") == "true"
+          sbom_total    = os.environ.get("SBOM_TOTAL", "N/A")
+          licenses      = os.environ.get("SBOM_LICENSES", "")
+          audit_total   = os.environ.get("AUDIT_TOTAL", "0")
+          audit_critical = int(os.environ.get("AUDIT_CRITICAL", "0"))
+          audit_high    = int(os.environ.get("AUDIT_HIGH", "0"))
+          audit_summary = os.environ.get("AUDIT_SUMMARY", "")
+          job_status    = os.environ.get("JOB_STATUS", "success")
+          run_url       = os.environ.get("RUN_URL", "")
 
-          if changed:
+          if job_status == "failure":
+              icon, title = ":rotating_light:", "SBOM チェック失敗 — 脆弱性を検出"
+              color = "#FF0000"
+          elif int(audit_total) > 0:
+              icon, title = ":warning:", "SBOM 更新 — 脆弱性あり (Low/Moderate のみ)"
+              color = "#FFA500"
+          elif changed:
               icon, title = ":package:", "SBOM を更新しました"
-              body = "依存パッケージに変更がありました"
+              color = "#36A64F"
           else:
-              icon, title = ":white_check_mark:", "SBOM 変更なし"
-              body = "依存パッケージに変更はありませんでした"
+              icon, title = ":white_check_mark:", "SBOM 変更なし・脆弱性ゼロ"
+              color = "#36A64F"
+
+          vuln_text = f"*脆弱性:*\n{audit_summary}" if audit_summary else "*脆弱性:*\n検出なし :tada:"
 
           payload = {
               "text": f"{icon} {title}",
               "blocks": [
                   {
                       "type": "section",
-                      "text": {"type": "mrkdwn", "text": f"{icon} *{title}*\n{body}"},
+                      "text": {"type": "mrkdwn", "text": f"{icon} *{title}*"},
                   },
                   {
                       "type": "section",
                       "fields": [
-                          {"type": "mrkdwn", "text": f"*パッケージ総数:*\n{total} 件"},
+                          {"type": "mrkdwn", "text": f"*パッケージ総数:*\n{sbom_total} 件"},
                           {"type": "mrkdwn", "text": f"*主要ライセンス:*\n{licenses}"},
+                          {"type": "mrkdwn", "text": vuln_text},
                       ],
                   },
                   {
